@@ -11,8 +11,10 @@
 #include <assert.h>
 #include <unistd.h>
 #include <gps.h>
+#include <libgen.h>
 #include <mosquitto.h>
 #include "json.h"
+#include "utarray.h"
 
 #define VERSION		0
 #define TID		"L1"
@@ -36,16 +38,17 @@
 
 /* Globals, configured from environment */
 FILE *fixlog = NULL;		/* if open, record JSON to this file */
-char *t_prefix = "loc";		/* topic prefix */
+char *t_prefix = "owntracks/unix/cli";		/* topic prefix */
 
 char *t_cmd, *t_report, *t_state;
 
+UT_array *parms;
 static struct mosquitto *mosq = NULL;
 static struct gps_data_t gpsdata;
 static int minmove = 00;	/* meters */
 static int minsecs = 60;	/* seconds */
 
-#define PROGNAME "owntracks-unix"
+#define PROGNAME "owntracks-cli"
 #define SIESTA	700		/* microseconds */
 #define BAT0	"/sys/class/power_supply/BAT0/capacity"
 
@@ -88,7 +91,7 @@ void catcher(int sig)
 	char info[BUFSIZ];
 
         sprintf(info, "Going down on signal %d", sig);
-	publish(t_state, info, QOS0);	/* shouting in the dark ... */
+	publish(t_state, info, QOS1);	/* shouting in the dark ... */
 	fatal();
 }
 
@@ -138,7 +141,7 @@ static void print_internal()
 	json_append_member(jo, "metres", json_mknumber(minmove));
 
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
-		publish(t_state, json_string, QOS0);
+		publish(t_state, json_string, QOS1);
 
 		free(json_string);
 	}
@@ -158,7 +161,7 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	tp++;
 
 	strcpy(info, "?");
-	
+
 	if (!strcmp(tp, "minmove")) {
 		int n = atoi(msg->payload);
 		minmove = (n >= 0) ? n : minmove;
@@ -197,7 +200,7 @@ static JsonNode *double_str(char *fmt, double d)
 
 static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype)
 {
-	char buf[128], *json_string;
+	char buf[128], *json_string, **p;
 	double accuracy;
 	struct gps_fix_t *fix = &(gpsdata->fix);
 	JsonNode *jo;
@@ -210,7 +213,7 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 		isnan(ttime)) {
 		return;
 	}
-	
+
 	if (!isnan(fix->epx) && !isnan(fix->epy)) {
 		accuracy = max(fix->epx, fix->epy);
 	} else if (isnan(fix->epx) && !isnan(fix->epy)) {
@@ -256,9 +259,38 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 		json_append_member(jo, "vel", json_mknumber(fix->speed));
 	}
 
+	/*
+	 * For each of the filenames passed as parameters, use the basename
+	 * as key for the string value of the first line in the file and add
+	 * to the JSON.
+	 */
+
+	p = NULL;
+	while ((p=(char**)utarray_next(parms, p))) {
+		char *key = basename(*p), *val = NULL;
+		FILE *fp;
+
+		if ((fp = fopen(*p, "r")) != NULL) {
+			char buf[1025], *bp;
+			if (fgets(buf, sizeof(buf), fp) != NULL) {
+				if ((bp = strchr(buf, '\r')) != NULL)
+					*bp = 0;
+				if ((bp = strchr(buf, '\n')) != NULL)
+					*bp = 0;
+				val = buf;
+			}
+			fclose(fp);
+		}
+		if (val) {
+			json_append_member(jo, key, json_mkstring(val));
+		} else {
+			json_append_member(jo, key, json_mknull());
+		}
+	}
+
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
 		npubs++;
-		publish(t_report, json_string, QOS0);
+		publish(t_report, json_string, QOS1);
 
 		if (fixlog) {
 			fprintf(fixlog, "%s\n", json_string);
@@ -330,6 +362,14 @@ int main(int argc, char **argv)
 			perror(p);
 		}
 	}
+
+	utarray_new(parms, &ut_str_icd);
+	while (*++argv) {
+		utarray_push_back(parms, &*argv);
+	}
+
+
+
 
 	/*
 	 * Obtain topic prefix from environment, and build cmd, state,
@@ -422,6 +462,8 @@ int main(int argc, char **argv)
 
 	gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	gps_close(&gpsdata);
+
+	utarray_free(parms);
 
         mosquitto_disconnect(mosq);
         mosquitto_loop_stop(mosq, FALSE);
