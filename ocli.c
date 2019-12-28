@@ -262,15 +262,31 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 	/*
 	 * For each of the filenames passed as parameters, use the basename
 	 * as key for the string value of the first line in the file and add
-	 * to the JSON.
+	 * to the JSON. Skip if the key is already in the JSON object, i.e.
+	 * don't overwrite existing elements.
 	 */
 
 	p = NULL;
 	while ((p=(char**)utarray_next(parms, p))) {
 		char *key = basename(*p), *val = NULL;
 		FILE *fp;
+		bool is_exec = false;
 
-		if ((fp = fopen(*p, "r")) != NULL) {
+		if (json_find_member(jo, key) != NULL) {
+			fprintf(stderr, "Refuse to overwrite key=%s\n", key);
+			continue;
+		}
+
+		is_exec = access(*p, X_OK) == 0;
+
+		if (is_exec) {
+			fp = popen(*p, "r");
+			is_exec = true;
+		} else {
+			fp = fopen(*p, "r");
+		}
+
+		if (fp != NULL) {
 			char buf[1025], *bp;
 			if (fgets(buf, sizeof(buf), fp) != NULL) {
 				if ((bp = strchr(buf, '\r')) != NULL)
@@ -279,7 +295,11 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 					*bp = 0;
 				val = buf;
 			}
-			fclose(fp);
+			if (is_exec) {
+				pclose(fp);
+			} else {
+				fclose(fp);
+			}
 		}
 		if (val) {
 			json_append_member(jo, key, json_mkstring(val));
