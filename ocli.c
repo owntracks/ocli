@@ -31,17 +31,11 @@
 
 /* Globals, configured from environment */
 FILE *fixlog = NULL;		/* if open, record JSON to this file */
-char *t_prefix = "owntracks/unix/cli";		/* topic prefix */
-char *tid;
 
-char *t_cmd, *t_report, *t_state;
+char *t_cmd, *t_dump;
 
 UT_array *parms;
-UT_string *topic;
-// static struct mosquitto *mosq = NULL;
 static struct gps_data_t gpsdata;
-static int minmove = 00;	/* meters */
-static int minsecs = 60;	/* seconds */
 #if GPSD_API_MAJOR_VERSION >= 7
 char gpsmessage[BLEN];
 size_t gpsmessagelen = BLEN;
@@ -53,6 +47,14 @@ size_t gpsmessagelen = BLEN;
 struct udata {
 	struct mosquitto *mosq;
 	int mid;
+	char *clientid;
+	char *basetopic;
+	char *tid;
+	char *username;
+	char *device;
+
+	int minmove;
+	int minsecs;
 };
 
 void publish(struct udata *ud, char *topic, char *payload, int qos);
@@ -92,11 +94,6 @@ void publish(struct udata *ud, char *topic, char *payload, int qos)
         }
 }
 
-void cb_pub(struct mosquitto *mosq, void *userdata, int pmid)
-{
-        // printf("cb_pub: mid = %d\n", pmid);
-}
-
 void cb_disconnect(struct mosquitto *mosq, void *userdata, int rc)
 {
         if (rc == 0) {
@@ -108,24 +105,25 @@ void cb_disconnect(struct mosquitto *mosq, void *userdata, int rc)
         }
 }
 
-static void print_internal(struct udata *ud)
+static void config_dump(struct udata *ud)
 {
 	char *json_string;
-	time_t now;
 	JsonNode *jo;
 
 	jo = json_mkobject();
 
-	time(&now);
-	json_append_member(jo, "_type", json_mkstring("internal"));
-	json_append_member(jo, "tst", json_mknumber(now));
-	json_append_member(jo, "npubs", json_mknumber(npubs));
-	printf("minmove == %d\n", minmove);
-	json_append_member(jo, "seconds", json_mknumber(minsecs));
-	json_append_member(jo, "metres", json_mknumber(minmove));
+	json_append_member(jo, "_type",			json_mkstring("configuration"));
+	json_append_member(jo, "_npubs",		json_mknumber(npubs));		// nonstandard
+	json_append_member(jo, "clientId", 		json_mkstring(ud->clientid));
+	json_append_member(jo, "locatorInterval",	json_mknumber(ud->minsecs));	// seconds
+	json_append_member(jo, "locatorDisplacement",	json_mknumber(ud->minmove));	// meters
+	json_append_member(jo, "pubTopicBase",		json_mkstring(ud->basetopic));
+	json_append_member(jo, "tid", 			json_mkstring(ud->tid));
+	json_append_member(jo, "username", 		json_mkstring(ud->username));
+	json_append_member(jo, "deviceId", 		json_mkstring(ud->device));
 
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
-		publish(ud, t_state, json_string, QOS1);
+		publish(ud, t_dump, json_string, QOS1);
 
 		free(json_string);
 	}
@@ -136,6 +134,51 @@ static void print_internal(struct udata *ud)
 void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *msg)
 {
 	struct udata *ud = (struct udata *)userdata;
+	JsonNode *json, *j;
+	char *action = NULL;
+
+	if ((json = json_decode(msg->payload)) == NULL) {
+		fprintf(stderr, "Cannot decode JSON from %s\n", msg->payload);
+		return;
+	}
+
+	if (((j = json_find_member(json, "_type")) == NULL) ||
+		(strcmp(j->string_, "cmd") != 0)) {
+		fprintf(stderr, "No cmd in JSON %s\n", msg->payload);
+		json_delete(json);
+		return;
+	}
+
+	if ((j = json_find_member(json, "action")) == NULL) {
+		fprintf(stderr, "No action in JSON %s\n", msg->payload);
+		json_delete(json);
+		return;
+	}
+
+	if (j->tag != JSON_STRING) {
+		fprintf(stderr, "action tag is not string in JSON %s\n", msg->payload);
+		json_delete(json);
+		return;
+	}
+
+	action = strdup(j->string_);
+
+	if (strcmp(action, "dump") == 0) {
+		config_dump(ud);
+	} else if (strcmp(action, "reportLocation") == 0) {
+		print_fix(ud, &gpsdata, 0, ONDEMAND_REPORT);
+	} else if (strcmp(action, "setConfiguration") == 0) {
+		fprintf(stderr, "set config\n");
+	}
+
+
+
+
+	json_delete(json);
+	if (action)
+		free(action);
+
+#if 0
 	char info[BUFSIZ];
 	char *tp = strrchr(msg->topic, '/');
 
@@ -160,7 +203,6 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	} else if (!strcmp(tp, "ping")) {
 		strcpy(info, "PONG");
 	} else if (!strcmp(tp, "report")) {
-		print_fix(ud, &gpsdata, 0, ONDEMAND_REPORT);
 		return;
 	} else if (!strcmp(tp, "info")) {
 		print_internal(ud);
@@ -170,6 +212,7 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	}
 
 	publish(ud, t_state, info, QOS2);
+#endif
 }
 
 
@@ -228,8 +271,8 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 	json_append_member(jo, "acc",	json_mknumber((long)accuracy));
 	json_append_member(jo, "tst",	json_mknumber(ttime));
 
-	if (tid && *tid) {
-		json_append_member(jo, "tid", json_mkstring(tid));
+	if (ud->tid && *ud->tid) {
+		json_append_member(jo, "tid", json_mkstring(ud->tid));
 	}
 
 	if (reporttype) {
@@ -298,7 +341,7 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
 		npubs++;
-		publish(ud, t_report, json_string, QOS1);
+		publish(ud, ud->basetopic, json_string, QOS1);
 
 		if (fixlog) {
 			fprintf(fixlog, "%s\n", json_string);
@@ -387,17 +430,17 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 	}
 
 	/* may not be worth logging if we've moved only a very short distance */
-	if (minmove>0 && !first && earth_distance(
+	if (ud->minmove>0 && !first && earth_distance(
 					fix->latitude,
 					fix->longitude,
-					old_lat, old_lon) < minmove) {
+					old_lat, old_lon) < ud->minmove) {
 		// puts("not enough move");
 		usleep(SIESTA);
 		return;
 	}
 
 	/* Don't log if minsecs haven't elapsed since the last fix */
-	if ((fabs(int_time - old_int_time) < minsecs) && !first) {
+	if ((fabs(int_time - old_int_time) < ud->minsecs) && !first) {
 		// puts("too soon");
 		usleep(SIESTA);
 		return;
@@ -407,7 +450,7 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 		first = false;
 
 	old_int_time = int_time;
-	if (minmove > 0) {
+	if (ud->minmove > 0) {
 		old_lat = fix->latitude;
 		old_lon = fix->longitude;
 	}
@@ -419,13 +462,17 @@ int main(int argc, char **argv)
 {
 	unsigned int flags = WATCH_NEWSTYLE; // WATCH_ENABLE | WATCH_JSON;
 	// unsigned int flags = WATCH_ENABLE | WATCH_JSON;
-	int keepalive = 60, rc, mid, qos=1;
-	char clientid[30], *p, *js;
+	int keepalive = 60, rc, mid;
+	char *p, *js;
 	char *gpsd_host = "localhost", *gpsd_port = DEFAULT_GPSD_PORT;
 	char *mqtt_host = "localhost";
 	short mqtt_port = 1883;
 	struct udata udata, *ud = &udata;
 	JsonNode *jo;
+
+	ud->clientid = strdup(PROGNAME);
+	ud->minsecs = 60;
+	ud->minmove = 0;
 
 	if ((p = getenv("GPSD_HOST")) != NULL)
 		gpsd_host = strdup(p);
@@ -458,10 +505,11 @@ int main(int argc, char **argv)
 	 * but can be overriden from the environment.
 	 */
 
-	if ((p = getenv("tprefix")) != NULL) {
-		t_prefix = strdup(p);
+	if ((p = getenv("BASE_TOPIC")) != NULL) {
+		ud->basetopic = strdup(p);
 	} else {
 		char hostname[BUFSIZ], *username, *h;
+		UT_string *to;
 
 		if ((username = getlogin()) == NULL)
 			username = "nobody";
@@ -471,28 +519,29 @@ int main(int argc, char **argv)
 		if ((h = strchr(hostname, '.')) != NULL)
 			*h = 0;
 
-		utstring_new(topic);
-		utstring_printf(topic, "owntracks/%s/%s", username, hostname);
-		t_prefix = strdup(utstring_body(topic));
+		utstring_new(to);
+		utstring_printf(to, "owntracks/%s/%s", username, hostname);
+		ud->basetopic = strdup(utstring_body(to));
+
+		ud->username = strdup(username);
+		ud->device =  strdup(hostname);
 
 	}
-	tid = getenv("OCLI_TID");		/* may be null */
+	ud->tid = getenv("OCLI_TID");		/* may be null */
 
-	t_report = strdup(t_prefix);
-	t_cmd = malloc(strlen(t_prefix) + strlen("/cmd/+") + 1);
-	sprintf(t_cmd, "%s/cmd/+", t_prefix);
+	t_cmd = malloc(strlen(ud->basetopic) + strlen("/cmd") + 1);
+	sprintf(t_cmd, "%s/cmd", ud->basetopic);
 
-	t_state = malloc(strlen(t_prefix) + strlen("/state") + 1);
-	sprintf(t_state, "%s/state", t_prefix);
+	t_dump = malloc(strlen(ud->basetopic) + strlen("/dump") + 1);
+	sprintf(t_dump, "%s/dump", ud->basetopic);
 
-	printf("t_report %s\n", t_report);
+	printf("t_report %s\n", ud->basetopic);
 	printf("t_cmd    %s\n", t_cmd   );
-	printf("t_state  %s\n", t_state );
+	printf("t_dump   %s\n", t_dump );
 
 	mosquitto_lib_init();
 
-        sprintf(clientid, "%s-%d", PROGNAME, getpid());
-        ud->mosq = mosquitto_new(clientid, true, (void *)&udata);
+        ud->mosq = mosquitto_new(ud->clientid, true, (void *)&udata);
         if (!ud->mosq) {
                 fprintf(stderr, "Out of memory.\n");
                 exit(1);
@@ -504,25 +553,24 @@ int main(int argc, char **argv)
 	json_append_member(jo, "_type", json_mkstring("lwt"));
 	json_append_member(jo, "tst", json_mknumber(time(0)));
 	if ((js = json_stringify(jo, NULL)) != NULL) {
-		if ((rc = mosquitto_will_set(ud->mosq, t_report, strlen(js), js, QOS1, true)) != MOSQ_ERR_SUCCESS) {
+		if ((rc = mosquitto_will_set(ud->mosq, ud->basetopic, strlen(js), js, QOS1, true)) != MOSQ_ERR_SUCCESS) {
 			fprintf(stderr, "Unable to set LWT: %s\n", mosquitto_strerror(rc));
 		}
 		free(js);
 	}
 	json_delete(jo);
 
-        mosquitto_publish_callback_set(ud->mosq, cb_pub);
-        mosquitto_disconnect_callback_set(ud->mosq, cb_disconnect);
+	mosquitto_disconnect_callback_set(ud->mosq, cb_disconnect);
 	mosquitto_message_callback_set(ud->mosq, cb_message);
 
         if ((rc = mosquitto_connect(ud->mosq, mqtt_host, mqtt_port, keepalive)) != MOSQ_ERR_SUCCESS) {
                 fprintf(stderr, "Unable to connect to %s:%d: %s\n", mqtt_host, mqtt_port,
-                        mosquitto_strerror(rc));
+                      mosquitto_strerror(rc));
                 perror("");
                 exit(2);
         }
 
-	mosquitto_subscribe(ud->mosq, &mid, t_cmd, qos);
+	mosquitto_subscribe(ud->mosq, &mid, t_cmd, QOS1);
 
         signal(SIGINT, catcher);
 
@@ -553,16 +601,16 @@ int main(int argc, char **argv)
 				conditionally_log_fix(&udata, &gpsdata);
 			}
 		}
-	    }
+	}
 
 	gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	gps_close(&gpsdata);
 
 	utarray_free(parms);
 
-        mosquitto_disconnect(ud->mosq);
-        mosquitto_loop_stop(ud->mosq, false);
-        mosquitto_lib_cleanup();
+	mosquitto_disconnect(ud->mosq);
+	mosquitto_loop_stop(ud->mosq, false);
+	mosquitto_lib_cleanup();
 
 	exit(EXIT_SUCCESS);
 }
