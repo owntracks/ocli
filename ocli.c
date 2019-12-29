@@ -15,23 +15,16 @@
 #include <mosquitto.h>
 #include "json.h"
 #include "utarray.h"
+#include "utstring.h"
 
 #define VERSION		0
-#define TID		"L1"
+#define BLEN		8192
 
-#define MQTT_HOST	"127.0.0.1"
-#define MQTT_PORT	1888
 #define QOS0		0
 #define QOS1		1
 #define QOS2		2
 
 #define max(a, b) ( (a > b) ? a : b )
-#ifndef TRUE
-# define TRUE (1)
-#endif
-#ifndef FALSE
-# define FALSE (0)
-#endif
 
 #define PERIODIC_REPORT	NULL
 #define ONDEMAND_REPORT "m"
@@ -39,14 +32,20 @@
 /* Globals, configured from environment */
 FILE *fixlog = NULL;		/* if open, record JSON to this file */
 char *t_prefix = "owntracks/unix/cli";		/* topic prefix */
+char *tid;
 
 char *t_cmd, *t_report, *t_state;
 
 UT_array *parms;
+UT_string *topic;
 static struct mosquitto *mosq = NULL;
 static struct gps_data_t gpsdata;
 static int minmove = 00;	/* meters */
 static int minsecs = 60;	/* seconds */
+#if GPSD_API_MAJOR_VERSION >= 7
+char gpsmessage[BLEN];
+size_t gpsmessagelen = BLEN;
+#endif
 
 #define PROGNAME "owntracks-cli"
 #define SIESTA	700		/* microseconds */
@@ -80,7 +79,7 @@ static void fatal(void)
 {
         if (mosq) {
                 mosquitto_disconnect(mosq);
-                mosquitto_loop_stop(mosq, FALSE);
+                mosquitto_loop_stop(mosq, false);
                 mosquitto_lib_cleanup();
         }
         exit(1);
@@ -98,7 +97,7 @@ void catcher(int sig)
 void publish(char *topic, char *payload, int qos)
 {
 	int mid;
-	int retain = FALSE;
+	int retain = false;
 	int rc;
 
         rc = mosquitto_publish(mosq, &mid, topic, strlen(payload), payload, qos, retain);
@@ -241,9 +240,13 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 	json_append_member(jo, "lat", json_mknumber(fix->latitude));
 	json_append_member(jo, "lon", json_mknumber(fix->longitude));
 	json_append_member(jo, "acc", json_mknumber((long)accuracy));
+	json_append_member(jo, "cog", json_mknumber((long)fix->track));
 	json_append_member(jo, "tst", json_mknumber(ttime));
+
 	json_append_member(jo, "batt", json_mknumber(batt_percent()));
-	json_append_member(jo, "tid", json_mkstring(TID));
+	if (tid) {
+		json_append_member(jo, "tid", json_mkstring(tid));
+	}
 
 	if (reporttype) {
 		json_append_member(jo, "t", json_mkstring(reporttype));
@@ -253,10 +256,11 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 	sprintf(buf, "%d/%d", gpsdata->satellites_used, gpsdata->satellites_visible);
 	json_append_member(jo, "sat", json_mkstring(buf));
 	if ((fix->mode == MODE_3D) && !isnan(fix->altitude)) {
-		json_append_member(jo, "alt", json_mknumber(fix->altitude));
+		json_append_member(jo, "alt", json_mknumber((long)fix->altitude));
 	}
 	if (!isnan(fix->speed)) {
-		json_append_member(jo, "vel", json_mknumber(fix->speed));
+		long kph = (fix->speed * 3.6); 	/* meters/s -> km/h */
+		json_append_member(jo, "vel", json_mknumber(kph));
 	}
 
 	/*
@@ -267,7 +271,7 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 	 */
 
 	p = NULL;
-	while ((p=(char**)utarray_next(parms, p))) {
+	while ((p = (char**)utarray_next(parms, p))) {
 		char *key = basename(*p), *val = NULL;
 		FILE *fp;
 		bool is_exec = false;
@@ -329,6 +333,66 @@ static void conditionally_log_fix(struct gps_data_t *gpsdata)
 	static double int_time, old_int_time;
 	static double old_lat, old_lon;
 	static bool first = true;
+	bool valid = false;
+
+	if (gpsdata->set & POLICY_SET) {
+		gpsdata->set &= ~(POLICY_SET);
+		return;
+	}
+
+	if (gpsdata->set & STATUS_SET) {
+		switch (gpsdata->status) {
+			case STATUS_FIX:
+			case STATUS_DGPS_FIX:
+				switch (gpsdata->fix.mode) {
+					case MODE_2D:
+						if (gpsdata->set & LATLON_SET) {
+							valid = true;
+						}
+						break;
+
+					case MODE_3D:
+						if (gpsdata->set & (LATLON_SET|ALTITUDE_SET)) {
+							valid = true;
+						}
+						break;
+
+					case MODE_NOT_SEEN:
+						fprintf(stderr, ".. fix not yet seen\n");
+						break;
+
+					case MODE_NO_FIX:
+						fprintf(stderr, ".. no fix yet\n");
+						break;
+
+					default:
+						fprintf(stderr, ".. unpossible mode\n");
+						break;
+				}
+				break;
+
+
+			case STATUS_NO_FIX:
+				fprintf(stderr, ".. no fix\n");
+				break;
+
+			default:
+				fprintf(stderr, "status == %llu\n", gpsdata->set & MODE_SET);
+				break;
+		}
+	}
+
+#if 0
+#if GPSD_API_MAJOR_VERSION >= 7
+	char *bp;
+	if ((bp = strchr(gpsmessage, '\r')) != NULL)
+		*bp = 0;
+	fprintf(stderr, "(%zu) %s\n", gpsmessagelen, gpsmessage);
+#endif
+#endif
+
+	if (valid == false)
+		return;
 
 	int_time = fix->time;
 
@@ -356,7 +420,7 @@ static void conditionally_log_fix(struct gps_data_t *gpsdata)
 	}
 
 	if (first)
-		first = FALSE;
+		first = false;
 
 	old_int_time = int_time;
 	if (minmove > 0) {
@@ -370,11 +434,28 @@ static void conditionally_log_fix(struct gps_data_t *gpsdata)
 int main(int argc, char **argv)
 {
 	unsigned int flags = WATCH_NEWSTYLE; // WATCH_ENABLE | WATCH_JSON;
-	long nodata = 0L;
+	// unsigned int flags = WATCH_ENABLE | WATCH_JSON;
 	int keepalive = 60, rc, mid, qos=1;
 	char clientid[30], *p, *js;
+	char *gpsd_host = "localhost", *gpsd_port = DEFAULT_GPSD_PORT;
+	char *mqtt_host = "localhost";
+	short mqtt_port = 1883;
 	struct udata udata;
 	JsonNode *jo;
+
+	if ((p = getenv("GPSD_HOST")) != NULL)
+		gpsd_host = strdup(p);
+
+	if ((p = getenv("GPSD_PORT")) != NULL) {
+		gpsd_port = atoi(p) < 1 ? DEFAULT_GPSD_PORT : p;
+	}
+
+	if ((p = getenv("MQTT_HOST")) != NULL)
+		mqtt_host = strdup(p);
+
+	if ((p = getenv("MQTT_PORT")) != NULL) {
+		mqtt_port = atoi(p) < 1 ? 1883 : atoi(p);
+	}
 
 	if ((p = getenv("fixlog")) != NULL) {
 		fixlog = fopen(p, "a");
@@ -388,17 +469,30 @@ int main(int argc, char **argv)
 		utarray_push_back(parms, &*argv);
 	}
 
-
-
-
 	/*
-	 * Obtain topic prefix from environment, and build cmd, state,
-	 * and report topic names.
+	 * Build MQTT topic name which defaults to owntracks/user/device
+	 * but can be overriden from the environment.
 	 */
 
 	if ((p = getenv("tprefix")) != NULL) {
 		t_prefix = strdup(p);
+	} else {
+		char hostname[BUFSIZ], *username, *h;
+
+		if ((username = getlogin()) == NULL)
+			username = "nobody";
+		if (gethostname(hostname, sizeof(hostname)) != 0)
+			strcpy(hostname, "localhost");
+
+		if ((h = strchr(hostname, '.')) != NULL)
+			*h = 0;
+
+		utstring_new(topic);
+		utstring_printf(topic, "owntracks/%s/%s", username, hostname);
+		t_prefix = strdup(utstring_body(topic));
+
 	}
+	tid = getenv("OCLI_TID");		/* may be null */
 
 	t_report = strdup(t_prefix);
 	t_cmd = malloc(strlen(t_prefix) + strlen("/cmd/+") + 1);
@@ -414,7 +508,7 @@ int main(int argc, char **argv)
 	mosquitto_lib_init();
 
         sprintf(clientid, "%s-%d", PROGNAME, getpid());
-        mosq = mosquitto_new(clientid, TRUE, (void *)&udata);
+        mosq = mosquitto_new(clientid, true, (void *)&udata);
         if (!mosq) {
                 fprintf(stderr, "Out of memory.\n");
                 exit(1);
@@ -437,8 +531,8 @@ int main(int argc, char **argv)
         mosquitto_disconnect_callback_set(mosq, cb_disconnect);
 	mosquitto_message_callback_set(mosq, cb_message);
 
-        if ((rc = mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, keepalive)) != MOSQ_ERR_SUCCESS) {
-                fprintf(stderr, "Unable to connect to %s:%d: %s\n", MQTT_HOST, MQTT_PORT,
+        if ((rc = mosquitto_connect(mosq, mqtt_host, mqtt_port, keepalive)) != MOSQ_ERR_SUCCESS) {
+                fprintf(stderr, "Unable to connect to %s:%d: %s\n", mqtt_host, mqtt_port,
                         mosquitto_strerror(rc));
                 perror("");
                 exit(2);
@@ -450,7 +544,7 @@ int main(int argc, char **argv)
 
 	mosquitto_loop_start(mosq);
 
-	if (gps_open("127.0.0.1", DEFAULT_GPSD_PORT, &gpsdata) != 0) {
+	if (gps_open(gpsd_host, gpsd_port, &gpsdata) != 0) {
 		fprintf(stderr,
 		      "%s: no gpsd running or network error: %d, %s\n",
 		      argv[0], errno, gps_errstr(errno));
@@ -460,22 +554,19 @@ int main(int argc, char **argv)
 	gps_stream(&gpsdata, flags, NULL);
 
 	while (1) {
-		if (!gps_waiting(&gpsdata, 50000000)) {
-			printf("no data\n");
-			if (++nodata > 10)
-				break;
-		} else {
+		if (gps_waiting(&gpsdata, 5000000) == true) {
 			errno = 0;
+#if GPSD_API_MAJOR_VERSION >= 7
+			if (gps_read(&gpsdata, gpsmessage, gpsmessagelen) == -1) {
+#else
 			if (gps_read(&gpsdata) == -1) {
-				perror("gps_read");
-				(void)gps_close(&gpsdata);
-				exit(1);
-			} else {
-				if (gpsdata.status == STATUS_NO_FIX) {
-					printf("status: NO FIX\n");
-				} else {
-					conditionally_log_fix(&gpsdata);
+#endif
+				if (errno == 0) {
+					// lost contact with gpsd
+					break;
 				}
+			} else {
+				conditionally_log_fix(&gpsdata);
 			}
 		}
 	    }
@@ -486,7 +577,7 @@ int main(int argc, char **argv)
 	utarray_free(parms);
 
         mosquitto_disconnect(mosq);
-        mosquitto_loop_stop(mosq, FALSE);
+        mosquitto_loop_stop(mosq, false);
         mosquitto_lib_cleanup();
 
 	exit(EXIT_SUCCESS);
