@@ -235,22 +235,21 @@ static void print_fix(struct gps_data_t *gpsdata, double ttime, char *reporttype
 #endif
 	jo = json_mkobject();
 
-	json_append_member(jo, "_type", json_mkstring("location"));
-	json_append_member(jo, "v", json_mknumber(VERSION));
-	json_append_member(jo, "lat", json_mknumber(fix->latitude));
-	json_append_member(jo, "lon", json_mknumber(fix->longitude));
-	json_append_member(jo, "acc", json_mknumber((long)accuracy));
-	json_append_member(jo, "cog", json_mknumber((long)fix->track));
-	json_append_member(jo, "tst", json_mknumber(ttime));
+	json_append_member(jo, "_type",	json_mkstring("location"));
+	json_append_member(jo, "v",	json_mknumber(VERSION));
+	json_append_member(jo, "lat",	json_mknumber(fix->latitude));
+	json_append_member(jo, "lon",	json_mknumber(fix->longitude));
+	json_append_member(jo, "acc",	json_mknumber((long)accuracy));
+	json_append_member(jo, "tst",	json_mknumber(ttime));
 
-	json_append_member(jo, "batt", json_mknumber(batt_percent()));
-	if (tid) {
+	if (tid && *tid) {
 		json_append_member(jo, "tid", json_mkstring(tid));
 	}
 
 	if (reporttype) {
 		json_append_member(jo, "t", json_mkstring(reporttype));
 	}
+	json_append_member(jo, "batt",	json_mknumber(batt_percent()));
 
 	/* DEBUGGING */
 	sprintf(buf, "%d/%d", gpsdata->satellites_used, gpsdata->satellites_visible);

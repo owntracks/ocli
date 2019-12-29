@@ -1,0 +1,6 @@
+*.o
+ocli
+*.dSYM
+.DS_Store
+parms/
+run*.sh
