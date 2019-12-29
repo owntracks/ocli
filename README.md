@@ -12,6 +12,28 @@ The following defaults are used:
 
 - topic defaults to `owntracks/<username>/<hostname>`, where _username_ is the name of the logged in user, and _hostname_ the short host name. The topic can be overriden by setting `t_prefix` in the environment.
 
+
+Any number of path names can be passed as arguments to _ocli_ which interprets each in terms of an element which will be added to the OwnTracks JSON. The element name is the basename of the path. If a path points to an executable file the first line of _stdout_ produced by that executable will be used as the _key_'s _value_, otherwise the first line read from the file. In both cases, trailing newlines are removed from values.
+
+```bash
+$ echo 27.2 > parms/temp
+$ ocli parms/temp /usr/bin/uname
+```
+
+In this example, we use a file and a program. When _ocli_ produces its JSON we'll see something like this:
+
+```json
+{
+  "_type": "location",
+  "tst": 1577654651,
+  "lat": ...
+  "temp" : "27.2",
+  "uname": "FreeBSD"
+}
+```
+
+Note that a _key_ may not overwrite JSON keys defined by _ocli_, so for example, a file called `lat` will not be accepted as it would clobber the latitude JSON element.
+
 ### FreeBSD
 
 ```bash
