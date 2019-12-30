@@ -137,7 +137,9 @@ static void config_dump(struct udata *ud)
 	json_append_member(jo, "locatorInterval",	json_mknumber(ud->interval));
 	json_append_member(jo, "locatorDisplacement",	json_mknumber(ud->displacement));
 	json_append_member(jo, "pubTopicBase",		json_mkstring(ud->basetopic));
-	json_append_member(jo, "tid", 			json_mkstring(ud->tid));
+	if (ud->tid && *ud->tid) {
+		json_append_member(jo, "tid", 			json_mkstring(ud->tid));
+	}
 	json_append_member(jo, "username", 		json_mkstring(ud->username));
 	json_append_member(jo, "deviceId", 		json_mkstring(ud->device));
 
