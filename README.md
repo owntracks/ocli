@@ -204,9 +204,9 @@ This may be a way of getting _ocli_ working on machines with _systemd_. Basicall
 
 ### Credits
 
-- Idea and initial implementation by Jan-Piet Mens
+- Idea and initial implementation by [Jan-Piet Mens](https://jpmens.net)
 - [gpsd]
-- [mosquitto](https://mosquitto.org), by Roger A. Light
+- [mosquitto](https://mosquitto.org)
 - [utarray](https://troydhanson.github.io/uthash/utarray.html)
 - [utstring](https://troydhanson.github.io/uthash/utstring.html)
 
