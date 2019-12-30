@@ -1,3 +1,22 @@
+/*
+ * OwnTracks CLI
+ * Copyright (C) 2016-2020 Jan-Piet Mens <jpmens@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -528,6 +547,9 @@ int main(int argc, char **argv)
 	ud->clientid = strdup(PROGNAME);
 	ud->interval = env_number("OCLI_INTERVAL", 60);		// minsecs seconds
 	ud->displacement = env_number("OCLI_DISPLACEMENT", 0);	// minmove meters
+
+	if ((p = getenv("OCLI_CLIENTID")) != NULL)
+		ud->clientid = strdup(p);
 
 	if ((p = getenv("GPSD_HOST")) != NULL)
 		gpsd_host = strdup(p);

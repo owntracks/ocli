@@ -23,12 +23,15 @@ The following defaults are used:
 
 - The MQTT base topic defaults to `owntracks/<username>/<hostname>`, where _username_ is the name of the logged in user, and _hostname_ the short host name. This base topic can be overridden by setting `BASE_TOPIC` in the environment.
 - The MQTT host and port are `localhost` and `1883` respectively, and can be set using `MQTT_HOST` and `MQTT_PORT`.
+- The MQTT clientId is set to `"owntracks-cli"`, but it can be overridden by setting `OCLI_CLIENTID` in the environment.
 - TCP is used to connect to _gpsd_ with `localhost` and `2947` being the default host and port, overridden by setting `GPSD_HOST` and `GPSD_PORT`.
 - The two-letter OwnTracks [tracker ID](https://owntracks.org/booklet/features/tid/) can be configured by setting `OCLI_TID`; it defaults to not being used.
 - `OCLI_INTERVAL` defaults to 60 seconds.
 - `OCLI_DISPLACEMENT` defaults to 0 meters.
 
 _ocli_ reads GPS data from _gpsd_ and as soon as it has a fix it publishes an OwnTracks payload (see below). _ocli_ will subsequently publish a message every `OCLI_INTERVAL` seconds or when it detects it has moved `OCLI_DISPLACEMENT` meters.
+
+![ocli with OwnTracks on macOS](assets/jmbp-5862.png)
 
 #### payload
 
