@@ -53,8 +53,8 @@ struct udata {
 	char *username;
 	char *device;
 
-	int minmove;
-	int minsecs;
+	int interval;		/* publish after seconds */
+	int displacement;	/* publish after this number of meters movement (def: 0) */
 };
 
 void publish(struct udata *ud, char *topic, char *payload, int qos);
@@ -115,8 +115,8 @@ static void config_dump(struct udata *ud)
 	json_append_member(jo, "_type",			json_mkstring("configuration"));
 	json_append_member(jo, "_npubs",		json_mknumber(npubs));		// nonstandard
 	json_append_member(jo, "clientId", 		json_mkstring(ud->clientid));
-	json_append_member(jo, "locatorInterval",	json_mknumber(ud->minsecs));	// seconds
-	json_append_member(jo, "locatorDisplacement",	json_mknumber(ud->minmove));	// meters
+	json_append_member(jo, "locatorInterval",	json_mknumber(ud->interval));
+	json_append_member(jo, "locatorDisplacement",	json_mknumber(ud->displacement));
 	json_append_member(jo, "pubTopicBase",		json_mkstring(ud->basetopic));
 	json_append_member(jo, "tid", 			json_mkstring(ud->tid));
 	json_append_member(jo, "username", 		json_mkstring(ud->username));
@@ -430,17 +430,17 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 	}
 
 	/* may not be worth logging if we've moved only a very short distance */
-	if (ud->minmove>0 && !first && earth_distance(
+	if (ud->displacement>0 && !first && earth_distance(
 					fix->latitude,
 					fix->longitude,
-					old_lat, old_lon) < ud->minmove) {
+					old_lat, old_lon) < ud->displacement) {
 		// puts("not enough move");
 		usleep(SIESTA);
 		return;
 	}
 
-	/* Don't log if minsecs haven't elapsed since the last fix */
-	if ((fabs(int_time - old_int_time) < ud->minsecs) && !first) {
+	/* Don't log if interval seconds haven't elapsed since the last fix */
+	if ((fabs(int_time - old_int_time) < ud->interval) && !first) {
 		// puts("too soon");
 		usleep(SIESTA);
 		return;
@@ -450,12 +450,24 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 		first = false;
 
 	old_int_time = int_time;
-	if (ud->minmove > 0) {
+	if (ud->displacement > 0) {
 		old_lat = fix->latitude;
 		old_lon = fix->longitude;
 	}
 
 	print_fix(ud, gpsdata, int_time, PERIODIC_REPORT);
+}
+
+static int env_number(char *key, int min)
+{
+	char *p;
+	int n;
+
+	if ((p = getenv(key)) == NULL)
+		return (min);
+	if ((n = atoi(p)) < min)
+		n = min;
+	return (n);
 }
 
 int main(int argc, char **argv)
@@ -471,8 +483,8 @@ int main(int argc, char **argv)
 	JsonNode *jo;
 
 	ud->clientid = strdup(PROGNAME);
-	ud->minsecs = 60;
-	ud->minmove = 0;
+	ud->interval = env_number("OCLI_INTERVAL", 60);		// minsecs seconds
+	ud->displacement = env_number("OCLI_DISPLACEMENT", 0);	// minmove meters
 
 	if ((p = getenv("GPSD_HOST")) != NULL)
 		gpsd_host = strdup(p);
