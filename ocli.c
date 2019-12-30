@@ -32,7 +32,6 @@
 /* Globals, configured from environment */
 FILE *fixlog = NULL;		/* if open, record JSON to this file */
 
-char *t_cmd, *t_dump;
 
 UT_array *parms;
 static struct gps_data_t gpsdata;
@@ -49,6 +48,7 @@ struct udata {
 	int mid;
 	char *clientid;
 	char *basetopic;
+	char *t_dump;		/* topic on which to dump configuration to */
 	char *tid;
 	char *username;
 	char *device;
@@ -101,7 +101,7 @@ void cb_disconnect(struct mosquitto *mosq, void *userdata, int rc)
         } else {
                 fprintf(stderr, "%s: disconnected: reason: %d (%s)\n",
                         PROGNAME, rc, strerror(errno));
-                fatal();
+                sleep(2);
         }
 }
 
@@ -123,13 +123,56 @@ static void config_dump(struct udata *ud)
 	json_append_member(jo, "deviceId", 		json_mkstring(ud->device));
 
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
-		publish(ud, t_dump, json_string, QOS1);
+		publish(ud, ud->t_dump, json_string, QOS1);
 
 		free(json_string);
 	}
 
 	json_delete(jo);
 }
+
+void set_config(struct udata *ud, JsonNode *json, char *payload)
+{
+	JsonNode *conf, *j;
+
+	/* FIXME: add checking for remoteConfiguration to permit changes */
+
+	if ((conf = json_find_member(json, "configuration")) == NULL) {
+		fprintf(stderr, "No configuration in JSON %s\n", (char *)payload);
+		return;
+	}
+
+	/*
+	 * We now have:
+	 * {
+	 *     "_type": "configuration",
+	 *     "bla": "foo"
+	 * }
+	 */
+
+	if (((j = json_find_member(conf, "_type")) == NULL) ||
+		(strcmp(j->string_, "configuration") != 0)) {
+		fprintf(stderr, "No configuration in config action %s\n", payload);
+		return;
+	}
+
+	json_foreach(j, conf) {
+		if (strcmp(j->key, "_type") == 0)
+			continue;
+		// printf("%s\t%s\n", j->key, j->string_);
+
+		if (strcmp(j->key, "locatorInterval") == 0) {
+			ud->interval = j->number_;
+			fprintf(stderr, "Set interval to %d\n", ud->interval);
+		} else if (strcmp(j->key, "locatorDisplacement") == 0) {
+			ud->displacement = j->number_;
+			fprintf(stderr, "Set displacement to %d\n", ud->displacement);
+		} else {
+			fprintf(stderr, "Ignoring unknown configuration key `%s'\n", j->key);
+		}
+	}
+}
+
 
 void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *msg)
 {
@@ -138,25 +181,25 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	char *action = NULL;
 
 	if ((json = json_decode(msg->payload)) == NULL) {
-		fprintf(stderr, "Cannot decode JSON from %s\n", msg->payload);
+		fprintf(stderr, "Cannot decode JSON from %s\n", (char *)msg->payload);
 		return;
 	}
 
 	if (((j = json_find_member(json, "_type")) == NULL) ||
 		(strcmp(j->string_, "cmd") != 0)) {
-		fprintf(stderr, "No cmd in JSON %s\n", msg->payload);
+		fprintf(stderr, "No cmd in JSON %s\n", (char *)msg->payload);
 		json_delete(json);
 		return;
 	}
 
 	if ((j = json_find_member(json, "action")) == NULL) {
-		fprintf(stderr, "No action in JSON %s\n", msg->payload);
+		fprintf(stderr, "No action in JSON %s\n", (char *)msg->payload);
 		json_delete(json);
 		return;
 	}
 
 	if (j->tag != JSON_STRING) {
-		fprintf(stderr, "action tag is not string in JSON %s\n", msg->payload);
+		fprintf(stderr, "action tag is not string in JSON %s\n", (char *)msg->payload);
 		json_delete(json);
 		return;
 	}
@@ -168,11 +211,8 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	} else if (strcmp(action, "reportLocation") == 0) {
 		print_fix(ud, &gpsdata, 0, ONDEMAND_REPORT);
 	} else if (strcmp(action, "setConfiguration") == 0) {
-		fprintf(stderr, "set config\n");
+		set_config(ud, json, (char *)msg->payload);
 	}
-
-
-
 
 	json_delete(json);
 	if (action)
@@ -370,7 +410,9 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 	if (gpsdata->set & STATUS_SET) {
 		switch (gpsdata->status) {
 			case STATUS_FIX:
+#ifdef STATUS_DGPS_FIX
 			case STATUS_DGPS_FIX:
+#endif
 				switch (gpsdata->fix.mode) {
 					case MODE_2D:
 						if (gpsdata->set & LATLON_SET) {
@@ -480,6 +522,7 @@ int main(int argc, char **argv)
 	char *mqtt_host = "localhost";
 	short mqtt_port = 1883;
 	struct udata udata, *ud = &udata;
+	char *t_cmd;
 	JsonNode *jo;
 
 	ud->clientid = strdup(PROGNAME);
@@ -544,12 +587,12 @@ int main(int argc, char **argv)
 	t_cmd = malloc(strlen(ud->basetopic) + strlen("/cmd") + 1);
 	sprintf(t_cmd, "%s/cmd", ud->basetopic);
 
-	t_dump = malloc(strlen(ud->basetopic) + strlen("/dump") + 1);
-	sprintf(t_dump, "%s/dump", ud->basetopic);
+	ud->t_dump = malloc(strlen(ud->basetopic) + strlen("/dump") + 1);
+	sprintf(ud->t_dump, "%s/dump", ud->basetopic);
 
 	printf("t_report %s\n", ud->basetopic);
 	printf("t_cmd    %s\n", t_cmd   );
-	printf("t_dump   %s\n", t_dump );
+	printf("t_dump   %s\n", ud->t_dump );
 
 	mosquitto_lib_init();
 
