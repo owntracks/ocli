@@ -68,6 +68,7 @@ struct udata {
 	char *clientid;
 	char *basetopic;
 	char *t_dump;		/* topic on which to dump configuration to */
+	char *t_cmd;		/* topic on which to subscribe to for commands */
 	char *tid;
 	char *username;
 	char *device;
@@ -112,13 +113,25 @@ void publish(struct udata *ud, char *topic, char *payload, int qos, bool retain)
         }
 }
 
-void cb_disconnect(struct mosquitto *mosq, void *userdata, int rc)
+void cb_connect(struct mosquitto *mosq, void *userdata, int reason)
 {
-        if (rc == 0) {
+	struct udata *ud = (struct udata *)userdata;
+	int rc, mid;
+
+
+	if ((rc = mosquitto_subscribe(ud->mosq, &mid, ud->t_cmd, QOS1)) != MOSQ_ERR_SUCCESS) {
+                fprintf(stderr, "cannot subscribe to %s: %s\n", ud->t_cmd,
+                      mosquitto_strerror(rc));
+	}
+}
+
+void cb_disconnect(struct mosquitto *mosq, void *userdata, int reason)
+{
+        if (reason == 0) {
                 // Disconnect requested by client
         } else {
                 fprintf(stderr, "%s: disconnected: reason: %d (%s)\n",
-                        PROGNAME, rc, strerror(errno));
+                        PROGNAME, reason, strerror(errno));
                 sleep(2);
         }
 }
@@ -489,14 +502,12 @@ static int env_number(char *key, int min)
 int main(int argc, char **argv)
 {
 	unsigned int flags = WATCH_NEWSTYLE; // WATCH_ENABLE | WATCH_JSON;
-	// unsigned int flags = WATCH_ENABLE | WATCH_JSON;
-	int keepalive = 60, rc, mid;
+	int keepalive = 60, rc;
 	char *p, *js;
 	char *gpsd_host = "localhost", *gpsd_port = DEFAULT_GPSD_PORT;
 	char *mqtt_host = "localhost";
 	short mqtt_port = 1883;
 	struct udata udata, *ud = &udata;
-	char *t_cmd;
 	char hostname[BUFSIZ], *h, *username;
 	JsonNode *jo;
 
@@ -569,14 +580,14 @@ int main(int argc, char **argv)
 		ud->clientid = strdup(utstring_body(cid));
 	}
 
-	t_cmd = malloc(strlen(ud->basetopic) + strlen("/cmd") + 1);
-	sprintf(t_cmd, "%s/cmd", ud->basetopic);
+	ud->t_cmd = malloc(strlen(ud->basetopic) + strlen("/cmd") + 1);
+	sprintf(ud->t_cmd, "%s/cmd", ud->basetopic);
 
 	ud->t_dump = malloc(strlen(ud->basetopic) + strlen("/dump") + 1);
 	sprintf(ud->t_dump, "%s/dump", ud->basetopic);
 
 	printf("t_report %s\n", ud->basetopic);
-	printf("t_cmd    %s\n", t_cmd   );
+	printf("t_cmd    %s\n", ud->t_cmd);
 	printf("t_dump   %s\n", ud->t_dump );
 
 	mosquitto_lib_init();
@@ -600,6 +611,7 @@ int main(int argc, char **argv)
 	}
 	json_delete(jo);
 
+	mosquitto_connect_callback_set(ud->mosq, cb_connect);
 	mosquitto_disconnect_callback_set(ud->mosq, cb_disconnect);
 	mosquitto_message_callback_set(ud->mosq, cb_message);
 
@@ -610,10 +622,6 @@ int main(int argc, char **argv)
                 exit(2);
         }
 
-	if ((rc = mosquitto_subscribe(ud->mosq, &mid, t_cmd, QOS1)) != MOSQ_ERR_SUCCESS) {
-                fprintf(stderr, "cannot subscribe to %s: %s\n", t_cmd,
-                      mosquitto_strerror(rc));
-	}
 
         signal(SIGINT, catcher);
 
