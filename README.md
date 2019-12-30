@@ -1,5 +1,7 @@
 # ocli
 
+![OCLI logo](assets/owntrackscli192.png)
+
 This is the OwnTracks command line interface publisher, a.k.a. _ocli_, a small utility which connects to _gpsd_ and publishes position information in [OwnTracks JSON](https://owntracks.org/booklet/tech/json/) to an MQTT broker in order for [compatible software](https://owntracks.org/booklet/guide/clients/) to process location data. (Read up on [what OwnTracks does](https://owntracks.org/booklet/guide/whathow/) if you're new to it.)
 
 ### gpsd
@@ -49,6 +51,7 @@ In this example, we use a file and a program. When _ocli_ produces its JSON we'l
   "_type": "location",
   "tst": 1577654651,
   "lat": 48.856826,
+
   "temp" : "27.2",
   "platform": "FreeBSD"
 }
@@ -58,7 +61,7 @@ Note that a _key_ may not overwrite JSON keys defined by _ocli_, so for example,
 
 #### controlling ocli
 
-It is possible, with a subset of OwnTrack's `cmd` commands to control _ocli_.
+It is possible to control _ocli_ using a subset of OwnTrack's `cmd` commands.
 
 ```bash
 $ t=owntracks/jpm/tiggr/cmd
@@ -68,6 +71,21 @@ The following commands are currently implemented:
 
 - `reportLocation` causes _ocli_ to publish its current location (providing _gpsd_ has a fix). _ocli_ sets `t:m` in the JSON indicating the publish was manually requested.
 - `dump` causes _ocli_ to publish its internal configuration to the topic `<basetopic>/dump` as a `_type: configuration` message.
+
+	```json
+	{
+	  "_type": "configuration",
+	  "_npubs": 47,
+	  "clientId": "owntracks-ocli",
+	  "locatorInterval": 60,
+	  "locatorDisplacement": 0,
+	  "pubTopicBase": "owntracks/jpm/tiggr",
+	  "tid": "OC",
+	  "username": "jpm",
+	  "deviceId": "tiggr"
+	}
+	```
+
 - `setConfiguration` permits setting some of _ocli_'s internal values. Note that these do not persist a restart.
 
     ```bash
