@@ -39,7 +39,7 @@ Any number of path names can be passed as arguments to _ocli_ which interprets e
 
 ```bash
 $ echo 27.2 > parms/temp
-$ ocli parms/temp /usr/bin/uname
+$ ocli parms/temp contrib/platform
 ```
 
 In this example, we use a file and a program. When _ocli_ produces its JSON we'll see something like this:
@@ -48,9 +48,9 @@ In this example, we use a file and a program. When _ocli_ produces its JSON we'l
 {
   "_type": "location",
   "tst": 1577654651,
-  "lat": ...
+  "lat": 48.856826,
   "temp" : "27.2",
-  "uname": "FreeBSD"
+  "platform": "FreeBSD"
 }
 ```
 
