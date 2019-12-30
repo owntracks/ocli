@@ -103,7 +103,7 @@ void catcher(int sig)
 
 void publish(struct udata *ud, char *topic, char *payload, int qos)
 {
-	int retain = false;
+	int retain = true;
 	int rc;
 
         rc = mosquitto_publish(ud->mosq, &ud->mid, topic, strlen(payload), payload, qos, retain);
