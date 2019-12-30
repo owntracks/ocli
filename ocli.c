@@ -230,7 +230,7 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	if (strcmp(action, "dump") == 0) {
 		config_dump(ud);
 	} else if (strcmp(action, "reportLocation") == 0) {
-		print_fix(ud, &gpsdata, 0, ONDEMAND_REPORT);
+		print_fix(ud, &gpsdata, (time_t)time(0), ONDEMAND_REPORT);
 	} else if (strcmp(action, "setConfiguration") == 0) {
 		set_config(ud, json, (char *)msg->payload);
 	}
