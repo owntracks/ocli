@@ -542,14 +542,12 @@ int main(int argc, char **argv)
 	short mqtt_port = 1883;
 	struct udata udata, *ud = &udata;
 	char *t_cmd;
+	char hostname[BUFSIZ], *h, *username;
 	JsonNode *jo;
 
-	ud->clientid = strdup(PROGNAME);
+	ud->clientid = NULL;
 	ud->interval = env_number("OCLI_INTERVAL", 60);		// minsecs seconds
 	ud->displacement = env_number("OCLI_DISPLACEMENT", 0);	// minmove meters
-
-	if ((p = getenv("OCLI_CLIENTID")) != NULL)
-		ud->clientid = strdup(p);
 
 	if ((p = getenv("GPSD_HOST")) != NULL)
 		gpsd_host = strdup(p);
@@ -577,6 +575,16 @@ int main(int argc, char **argv)
 		utarray_push_back(parms, &*argv);
 	}
 
+
+	if ((username = getlogin()) == NULL)
+		username = "nobody";
+
+	if (gethostname(hostname, sizeof(hostname)) != 0)
+		strcpy(hostname, "localhost");
+
+	if ((h = strchr(hostname, '.')) != NULL)
+		*h = 0;
+
 	/*
 	 * Build MQTT topic name which defaults to owntracks/user/device
 	 * but can be overriden from the environment.
@@ -585,16 +593,7 @@ int main(int argc, char **argv)
 	if ((p = getenv("BASE_TOPIC")) != NULL) {
 		ud->basetopic = strdup(p);
 	} else {
-		char hostname[BUFSIZ], *username, *h;
 		UT_string *to;
-
-		if ((username = getlogin()) == NULL)
-			username = "nobody";
-		if (gethostname(hostname, sizeof(hostname)) != 0)
-			strcpy(hostname, "localhost");
-
-		if ((h = strchr(hostname, '.')) != NULL)
-			*h = 0;
 
 		utstring_new(to);
 		utstring_printf(to, "owntracks/%s/%s", username, hostname);
@@ -605,6 +604,16 @@ int main(int argc, char **argv)
 
 	}
 	ud->tid = getenv("OCLI_TID");		/* may be null */
+
+	if ((p = getenv("OCLI_CLIENTID")) != NULL) {
+		ud->clientid = strdup(p);
+	} else {
+		UT_string *cid;
+
+		utstring_new(cid);
+		utstring_printf(cid, "ocli-%s-%s", username, hostname);
+		ud->clientid = strdup(utstring_body(cid));
+	}
 
 	t_cmd = malloc(strlen(ud->basetopic) + strlen("/cmd") + 1);
 	sprintf(t_cmd, "%s/cmd", ud->basetopic);
