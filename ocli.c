@@ -76,7 +76,7 @@ struct udata {
 	int displacement;	/* publish after this number of meters movement (def: 0) */
 };
 
-void publish(struct udata *ud, char *topic, char *payload, int qos);
+void publish(struct udata *ud, char *topic, char *payload, int qos, bool retain);
 static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double time, char *reporttype);
 
 long npubs = 0L;
@@ -101,9 +101,8 @@ void catcher(int sig)
 	fatal();
 }
 
-void publish(struct udata *ud, char *topic, char *payload, int qos)
+void publish(struct udata *ud, char *topic, char *payload, int qos, bool retain)
 {
-	int retain = true;
 	int rc;
 
         rc = mosquitto_publish(ud->mosq, &ud->mid, topic, strlen(payload), payload, qos, retain);
@@ -144,7 +143,7 @@ static void config_dump(struct udata *ud)
 	json_append_member(jo, "deviceId", 		json_mkstring(ud->device));
 
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
-		publish(ud, ud->t_dump, json_string, QOS1);
+		publish(ud, ud->t_dump, json_string, QOS1, false);
 
 		free(json_string);
 	}
@@ -201,10 +200,14 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	JsonNode *json, *j;
 	char *action = NULL;
 
-	if ((json = json_decode(msg->payload)) == NULL) {
+	if (msg->payloadlen < 2)
+		return;
+
+	if ((json = json_decode((char *)msg->payload)) == NULL) {
 		fprintf(stderr, "Cannot decode JSON from %s\n", (char *)msg->payload);
 		return;
 	}
+
 
 	if (((j = json_find_member(json, "_type")) == NULL) ||
 		(strcmp(j->string_, "cmd") != 0)) {
@@ -238,54 +241,7 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 	json_delete(json);
 	if (action)
 		free(action);
-
-#if 0
-	char info[BUFSIZ];
-	char *tp = strrchr(msg->topic, '/');
-
-	printf("topic == %s\n", msg->topic);
-
-	if (!tp || !(*tp+1) || !(*tp+2))
-		return;
-	tp++;
-
-	strcpy(info, "?");
-
-	if (!strcmp(tp, "minmove")) {
-		int n = atoi(msg->payload);
-		minmove = (n >= 0) ? n : minmove;
-		print_internal(ud);
-		return;
-	} else if (!strcmp(tp, "minsecs")) {
-		int n = atoi(msg->payload);
-		minsecs = (n > 1) ? n : minsecs;
-		print_internal(ud);
-		return;
-	} else if (!strcmp(tp, "ping")) {
-		strcpy(info, "PONG");
-	} else if (!strcmp(tp, "report")) {
-		return;
-	} else if (!strcmp(tp, "info")) {
-		print_internal(ud);
-		return;
-	} else if (!strcmp(tp, "stop")) {
-		catcher(0);
-	}
-
-	publish(ud, t_state, info, QOS2);
-#endif
 }
-
-
-#if 0
-static JsonNode *double_str(char *fmt, double d)
-{
-	char buf[128];
-
-	sprintf(buf, fmt, d);
-	return json_mkstring(buf);
-}
-#endif
 
 static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime, char *reporttype)
 {
@@ -293,9 +249,7 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 	double accuracy;
 	struct gps_fix_t *fix = &(gpsdata->fix);
 	JsonNode *jo;
-#if 1
 	char tbuf[128];
-#endif
 
 	if (isnan(fix->latitude) ||
 		isnan(fix->longitude) ||
@@ -313,7 +267,6 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 		accuracy = 0.0;
 	}
 
-#if 1
 	unix_to_iso8601(ttime, tbuf, sizeof(tbuf));
 	printf("mode=%d, lat=%f, lon=%f, acc=%f, tst=%s (%f)\n",
 		fix->mode,
@@ -322,7 +275,7 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 		accuracy,
 		tbuf,
 		ttime);
-#endif
+
 	jo = json_mkobject();
 
 	json_append_member(jo, "_type",	json_mkstring("location"));
@@ -402,7 +355,7 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 
 	if ((json_string = json_stringify(jo, NULL)) != NULL) {
 		npubs++;
-		publish(ud, ud->basetopic, json_string, QOS1);
+		publish(ud, ud->basetopic, json_string, QOS1, true);
 
 		if (fixlog) {
 			fprintf(fixlog, "%s\n", json_string);
@@ -577,7 +530,6 @@ int main(int argc, char **argv)
 		utarray_push_back(parms, &*argv);
 	}
 
-
 	if ((username = getlogin()) == NULL)
 		username = "nobody";
 
@@ -658,7 +610,10 @@ int main(int argc, char **argv)
                 exit(2);
         }
 
-	mosquitto_subscribe(ud->mosq, &mid, t_cmd, QOS1);
+	if ((rc = mosquitto_subscribe(ud->mosq, &mid, t_cmd, QOS1)) != MOSQ_ERR_SUCCESS) {
+                fprintf(stderr, "cannot subscribe to %s: %s\n", t_cmd,
+                      mosquitto_strerror(rc));
+	}
 
         signal(SIGINT, catcher);
 

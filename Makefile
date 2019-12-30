@@ -1,5 +1,5 @@
 CFLAGS=-Wall -Werror -Os -I/usr/local/include
-LDFLAGS=-Os -L/usr/local/lib
+LDFLAGS=-g -O2 -L/usr/local/lib
 ocli: ocli.o json.o
 	$(CC) $(LDFLAGS) -o ocli ocli.o json.o -lmosquitto -lgps -lm
 
