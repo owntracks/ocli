@@ -36,12 +36,13 @@
 #include "utarray.h"
 #include "utstring.h"
 
-#define VERSION		0
 #define BLEN		8192
 
 #define QOS0		0
 #define QOS1		1
 #define QOS2		2
+#define SSL_VERIFY_PEER (1)
+#define SSL_VERIFY_NONE (0)
 
 #define max(a, b) ( (a > b) ? a : b )
 
@@ -51,20 +52,19 @@
 /* Globals, configured from environment */
 FILE *fixlog = NULL;		/* if open, record JSON to this file */
 
-
 UT_array *parms;
 static struct gps_data_t gpsdata;
+long npubs = 0L;
 #if GPSD_API_MAJOR_VERSION >= 7
 char gpsmessage[BLEN];
 size_t gpsmessagelen = BLEN;
 #endif
 
-#define PROGNAME "owntracks-cli"
+#define PROGNAME "ocli"
 #define SIESTA	700		/* microseconds */
 
 struct udata {
 	struct mosquitto *mosq;
-	int mid;
 	char *clientid;
 	char *basetopic;
 	char *t_dump;		/* topic on which to dump configuration to */
@@ -80,60 +80,43 @@ struct udata {
 void publish(struct udata *ud, char *topic, char *payload, int qos, bool retain);
 static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double time, char *reporttype);
 
-long npubs = 0L;
-
-static void fatal(void)
-{
-#if 0
-        if (mosq) {
-                mosquitto_disconnect(mosq);
-                mosquitto_loop_stop(mosq, false);
-                mosquitto_lib_cleanup();
-        }
-#endif
-        exit(1);
-}
-
 void catcher(int sig)
 {
-	char info[BUFSIZ];
-
-        sprintf(info, "Going down on signal %d", sig);
-	fatal();
+	fprintf(stderr, "%s: Going down on signal %d", PROGNAME, sig);
+	exit(1);
 }
 
 void publish(struct udata *ud, char *topic, char *payload, int qos, bool retain)
 {
 	int rc;
 
-        rc = mosquitto_publish(ud->mosq, &ud->mid, topic, strlen(payload), payload, qos, retain);
-        if (rc != MOSQ_ERR_SUCCESS) {
-                fprintf(stderr, "Cannot publish: %s\n", mosquitto_strerror(rc));
-                fatal();
-        }
+	rc = mosquitto_publish(ud->mosq, NULL, topic, strlen(payload), payload, qos, retain);
+	if (rc != MOSQ_ERR_SUCCESS) {
+		fprintf(stderr, "%s: cannot publish: %s\n", PROGNAME, mosquitto_strerror(rc));
+		exit(1);
+	}
 }
 
 void cb_connect(struct mosquitto *mosq, void *userdata, int reason)
 {
 	struct udata *ud = (struct udata *)userdata;
-	int rc, mid;
+	int rc;
 
-
-	if ((rc = mosquitto_subscribe(ud->mosq, &mid, ud->t_cmd, QOS1)) != MOSQ_ERR_SUCCESS) {
-                fprintf(stderr, "cannot subscribe to %s: %s\n", ud->t_cmd,
-                      mosquitto_strerror(rc));
+	if ((rc = mosquitto_subscribe(ud->mosq, NULL, ud->t_cmd, QOS1)) != MOSQ_ERR_SUCCESS) {
+		fprintf(stderr, "cannot subscribe to %s: %s\n", ud->t_cmd,
+			mosquitto_strerror(rc));
 	}
 }
 
 void cb_disconnect(struct mosquitto *mosq, void *userdata, int reason)
 {
-        if (reason == 0) {
-                // Disconnect requested by client
-        } else {
-                fprintf(stderr, "%s: disconnected: reason: %d (%s)\n",
-                        PROGNAME, reason, strerror(errno));
-                sleep(2);
-        }
+	if (reason == 0) {
+		// Disconnect requested by client
+	} else {
+		fprintf(stderr, "%s: disconnected: reason: %d (%s)\n",
+			PROGNAME, reason, strerror(errno));
+		sleep(2);
+	}
 }
 
 static void config_dump(struct udata *ud)
@@ -206,7 +189,6 @@ void set_config(struct udata *ud, JsonNode *json, char *payload)
 	}
 }
 
-
 void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *msg)
 {
 	struct udata *ud = (struct udata *)userdata;
@@ -220,7 +202,6 @@ void cb_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 		fprintf(stderr, "Cannot decode JSON from %s\n", (char *)msg->payload);
 		return;
 	}
-
 
 	if (((j = json_find_member(json, "_type")) == NULL) ||
 		(strcmp(j->string_, "cmd") != 0)) {
@@ -281,18 +262,17 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 	}
 
 	unix_to_iso8601(ttime, tbuf, sizeof(tbuf));
-	printf("mode=%d, lat=%f, lon=%f, acc=%f, tst=%s (%f)\n",
+	printf("mode=%d, lat=%f, lon=%f, acc=%f, tst=%s (%ld)\n",
 		fix->mode,
 		fix->latitude,
 		fix->longitude,
 		accuracy,
 		tbuf,
-		ttime);
+		(long)ttime);
 
 	jo = json_mkobject();
 
 	json_append_member(jo, "_type",	json_mkstring("location"));
-	json_append_member(jo, "v",	json_mknumber(VERSION));
 	json_append_member(jo, "lat",	json_mknumber(fix->latitude));
 	json_append_member(jo, "lon",	json_mknumber(fix->longitude));
 	json_append_member(jo, "acc",	json_mknumber((long)accuracy));
@@ -331,7 +311,7 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 		bool is_exec = false;
 
 		if (json_find_member(jo, key) != NULL) {
-			fprintf(stderr, "Refuse to overwrite key=%s\n", key);
+			// fprintf(stderr, "Refuse to overwrite key=%s\n", key);
 			continue;
 		}
 
@@ -427,7 +407,6 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 				}
 				break;
 
-
 			case STATUS_NO_FIX:
 				fprintf(stderr, ".. no fix\n");
 				break;
@@ -510,6 +489,7 @@ int main(int argc, char **argv)
 	struct udata udata, *ud = &udata;
 	char hostname[BUFSIZ], *h, *username;
 	JsonNode *jo;
+	char *cacert = NULL;
 
 	ud->clientid = NULL;
 	ud->interval = env_number("OCLI_INTERVAL", 60);		// minsecs seconds
@@ -527,6 +507,10 @@ int main(int argc, char **argv)
 
 	if ((p = getenv("MQTT_PORT")) != NULL) {
 		mqtt_port = atoi(p) < 1 ? 1883 : atoi(p);
+	}
+
+	if ((p = getenv("OCLI_CACERT")) != NULL) {
+		cacert = strdup(p);
 	}
 
 	if ((p = getenv("fixlog")) != NULL) {
@@ -592,11 +576,34 @@ int main(int argc, char **argv)
 
 	mosquitto_lib_init();
 
-        ud->mosq = mosquitto_new(ud->clientid, true, (void *)&udata);
-        if (!ud->mosq) {
-                fprintf(stderr, "Out of memory.\n");
-                exit(1);
-        }
+	ud->mosq = mosquitto_new(ud->clientid, true, (void *)&udata);
+	if (!ud->mosq) {
+		fprintf(stderr, "Out of memory.\n");
+		exit(1);
+	}
+
+	if (cacert != NULL) {
+		rc = mosquitto_tls_set(ud->mosq,
+			cacert,      /* cafile */
+			NULL,        /* capath */
+			NULL,        /* certfile */
+			NULL,        /* keyfile */
+			NULL         /* pw_callback() */
+			);
+		if (rc != MOSQ_ERR_SUCCESS) {
+			fprintf(stderr, "%s: cannot set TLS CA: %s (check path names)\n",
+				PROGNAME, mosquitto_strerror(rc));
+			exit(3);
+		}
+
+		mosquitto_tls_opts_set(ud->mosq,
+			SSL_VERIFY_PEER,
+			NULL,                   /* tls_version: "tlsv1.2", "tlsv1" */
+			NULL                    /* ciphers */
+			);
+	}
+
+
 
 	/* Create payload for LWT consisting of starting timestamp */
 	jo = json_mkobject();
@@ -615,15 +622,15 @@ int main(int argc, char **argv)
 	mosquitto_disconnect_callback_set(ud->mosq, cb_disconnect);
 	mosquitto_message_callback_set(ud->mosq, cb_message);
 
-        if ((rc = mosquitto_connect(ud->mosq, mqtt_host, mqtt_port, keepalive)) != MOSQ_ERR_SUCCESS) {
-                fprintf(stderr, "Unable to connect to %s:%d: %s\n", mqtt_host, mqtt_port,
-                      mosquitto_strerror(rc));
-                perror("");
-                exit(2);
-        }
+	if ((rc = mosquitto_connect(ud->mosq, mqtt_host, mqtt_port, keepalive)) != MOSQ_ERR_SUCCESS) {
+		fprintf(stderr, "Unable to connect to %s:%d: %s\n", mqtt_host, mqtt_port,
+			mosquitto_strerror(rc));
+		perror("");
+		exit(2);
+	}
 
-
-        signal(SIGINT, catcher);
+	signal(SIGINT, catcher);
+	signal(SIGTERM, catcher);
 
 	mosquitto_loop_start(ud->mosq);
 

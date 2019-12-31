@@ -30,6 +30,7 @@ The following defaults are used:
 - The two-letter OwnTracks [tracker ID](https://owntracks.org/booklet/features/tid/) can be configured by setting `OCLI_TID`; it defaults to not being used.
 - `OCLI_INTERVAL` defaults to 60 seconds.
 - `OCLI_DISPLACEMENT` defaults to 0 meters.
+- TLS can be enabled for the MQTT connection by specifying the path to a PEM CA certificate with which to verify peers in `OCLI_CACERT`. Note, that you'll likely need to also specify a different `MQTT_PORT` from the default.
 
 _ocli_ reads GPS data from _gpsd_ and as soon as it has a fix it publishes an OwnTracks payload (see below). _ocli_ will subsequently publish a message every `OCLI_INTERVAL` seconds or when it detects it has moved `OCLI_DISPLACEMENT` meters.
 
