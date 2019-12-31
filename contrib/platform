@@ -22,7 +22,14 @@ if [ -x /usr/bin/sw_vers ]; then
 	exit
 fi
 
-# FreeBSD, OpenBSD, ...
+# FreeBSD
+
+if [ -x /bin/freebsd-version ]; then
+	echo "FreeBSD$(/bin/freebsd-version | sed 's/-.*//')"
+	exit
+fi
+
+# OpenBSD, ...
 if [ -x /usr/bin/uname ]; then
 	/usr/bin/uname
 else
