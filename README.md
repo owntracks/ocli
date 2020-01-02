@@ -14,7 +14,7 @@ We've been successful with a number of GPS receivers, some of which are very aff
 
 Determining which USB port was obtained by the receiver can be challenging, but _dmesg_ is useful to find out. Once you know the port, cross your fingers that it remains identical after a reboot, and ensure your _gpsd_ service is running. For testing, we've found that launching it from a terminal is useful:
 
-```bash
+```console
 $ gpsd -n -D 2 -N /dev/tty.usbmodem1A121201
 ```
 ### ocli
@@ -40,7 +40,7 @@ _ocli_ reads GPS data from _gpsd_ and as soon as it has a fix it publishes an Ow
 
 Any number of path names can be passed as arguments to _ocli_ which interprets each in terms of an element which will be added to the OwnTracks JSON. The element name is the base name of the path. If a path points to an executable file the first line of _stdout_ produced by that executable will be used as the _key_'s _value_, otherwise the first line read from the file. In both cases, trailing newlines are removed from values.
 
-```bash
+```console
 $ echo 27.2 > parms/temp
 $ ocli parms/temp contrib/platform
 ```
@@ -64,7 +64,7 @@ Note that a _key_ may not overwrite JSON keys defined by _ocli_, so for example,
 
 It is possible to control _ocli_ using a subset of OwnTrack's `cmd` commands.
 
-```bash
+```console
 $ t=owntracks/jpm/tiggr/cmd
 $ mosquitto_pub -t $t -m "$(jo _type=cmd action=reportLocation)"
 ```
@@ -89,7 +89,7 @@ The following commands are currently implemented:
 
 - `setConfiguration` permits setting some of _ocli_'s internal values. Note that these do not persist a restart.
 
-    ```bash
+    ```console
     $ mosquitto_pub -t $t -m "$(jo _type=cmd action=setConfiguration configuration=$(jo _type=configuration locatorInterval=10 locatorDisplacement=0))"
     ```
 
@@ -115,35 +115,35 @@ Systems we've tested on require the following packages in order to build _ocli_.
 
 #### FreeBSD
 
-```bash
+```console
 # pkg install mosquitto gpsd
 $ make
 ```
 
 #### OpenBSD
 
-```bash
+```console
 # pkg_add mosquitto gpsd
 $ make
 ```
 
 #### macOS
 
-```bash
+```console
 $ brew install mosquitto gpsd
 $ make
 ```
 
 #### Debian
 
-```bash
+```console
 # apt-get install libmosquitto-dev libgps-dev
 $ make
 ```
 
 #### CentOS
 
-```bash
+```console
 # yum install openssl-devel
 $ wget https://mosquitto.org/files/source/mosquitto-1.6.8.tar.gz
 $ tar xf mosquitto-1.6.8.tar.gz
