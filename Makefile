@@ -1,5 +1,4 @@
 CFLAGS=-Wall -Werror -Os -I/usr/local/include
-LDFLAGS=-g -O2 -L/usr/local/lib
 LDFLAGS=-L /usr/local/lib -lmosquitto -lgps -lm
 
 BINDIR = /usr/local/bin
@@ -10,7 +9,7 @@ OBJS = json.o
 all: ocli
 
 ocli: ocli.c $(OBJS)
-	$(CC) $(LDFLAGS) -o ocli ocli.c $(OBJS) $(LDFLAGS)
+	$(CC) $(CCFLAGS) -o ocli ocli.c $(OBJS) $(LDFLAGS)
 
 json.o: json.c json.h
 ocli.o: json.h ocli.c utarray.h utstring.h
