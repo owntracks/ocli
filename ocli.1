@@ -1,0 +1,151 @@
+.\" ocli.1 Copyright (C) 2016-2020 Jan-Piet Mens <jp@mens.de>
+.\" ===
+.TH ocli 1 "January 2020" "jpmens" "GPS/MQTT utilities"
+.\"-----------------------------------------------------------
+.SH NAME
+ocli \- OwnTracks command-line interface GPS publisher
+.\"-----------------------------------------------------------
+.SH SYNOPSIS
+.B ocli
+[
+.IR parameter-file ... ]
+.\"-----------------------------------------------------------
+.SH DESCRIPTION
+.B ocli
+is the OwnTracks command line interface publisher, a small utility which connects to
+.B gpsd
+(the interface daemon for GPS receivers )
+and publishes position information in OwnTracks JSON format to an MQTT broker in order
+for compatible software to process location data.
+
+.B ocli
+reads GPS data from an installed
+.B gpsd
+daemon, and as soon as it has a fix it publishes an OwnTracks payload.
+.B ocli
+will subsequently publish a message every \fCOCLI_INTERVAL\fR seconds or when it detects it has moved \fCOCLI_DISPLACEMENT\fR meters.
+.PP
+.B ocli
+operates with a number of defaults which you can override using environment variables.
+.PP
+Any number of path names can be passed as
+.I parameter-file
+arguments to
+.B ocli
+which interprets each in terms of an element which will be added to the OwnTracks JSON. The element name is the base name of the path. If a path points to an executable file the first line of
+standard output produced by that executable will be used as the key's value, otherwise the first line read from the file. In both cases, trailing newlines are removed from values.
+.sp
+.nf
+.in 1i
+.ft CW
+echo 27.2 > temperature
+ocli temperature /usr/bin/uname
+.ft
+.in
+.fi
+.sp
+will produce a payload which might look like
+.nf
+.in 1i
+.ft CW
+{
+  "_type": "location",
+  "tst": 1577654651,
+  "lat": 48.856826,
+
+  "temp" : "27.2",
+  "platform": "FreeBSD"
+}
+.ft
+.in
+.fi
+.PP
+Keys obtained from
+.IR parameter-file s
+must not overwrite JSON element names define by
+.BR ocli ,
+so, for example, a file called \fClat\fR will be silently ignored as it would clobber the JSON
+\fClatitude\fR element.
+.PP
+It is possible to control
+.B ocli
+using a subset of OwnTrack's \fCcmd\fR commands.
+.sp
+.nf
+.in 1i
+.ft CW
+t=owntracks/jpm/tiggr/cmd
+mosquitto_pub -t $t -m "$(jo _type=cmd action=reportLocation)"
+.fi
+.in
+.ft
+.sp
+The following commands are currently implemented:
+.IP reportLocation 1i
+causes
+.B ocli
+to publish its current location (providing
+.B gpsd
+has a fix).
+.B ocli
+sets \fCt:m\fR in the JSON to indicate the publish was manually requested.
+.IP dump 1i
+causes the program to publish its internal configuration to the topic \fC\fIbasetopic\fR\fC/dump\fR as a \fC_type: configuration\fR message.
+.IP setConfiguration
+permits setting some of
+.BR ocli 's
+internal values (\fClocatorInterval\fR and \fClocatorDisplacement\fR).
+Note that these do not persist a restart.
+.\"-----------------------------------------------------------
+.SH ENVIRONMENT
+.B ocli
+is operates with a number of compiled-in defaults which can be overridden using environment variables:
+.IP \fCBASE_TOPIC\fR 1i
+The MQTT base topic defaults to \fCowntracks/\fIusername\fR\fC/\fIhostname\fR, where
+.I username
+is the name of the logged in user, and
+.I hostname
+the short host name.
+.IP \fCMQTT_HOST\fR 1i
+The MQTT host defaults to \fClocalhost\fR.
+.IP \fCMQTT_PORT\fR 1i
+The MQTT port is \fC1883\fR.
+.IP \fCOCLI_CLIENTID\fR 1i
+The MQTT clientId is set to \fC"ocli-\fIusername\fR\fC-\fIhostname\fR\fC"\fR.
+.IP \fCGPSD_HOST\fR 1i
+The address/hostname of the host on which
+.B gpsd
+is listening defaults to \fClocalhost\fR.
+.IP \fCGPSD_PORT\fR 1i
+The
+.B gpsd
+port nummber defaults to \fC2947\fR.
+.IP \fCOCLI_TID\fR 1i
+The two-letter OwnTracks tracker ID defaults to not being used.
+.IP \fCOCLI_INTERVAL\fR 1i
+The interval after which
+.B ocli
+will publish a location position defaults to 60 seconds and can be changed dynamically (see above).
+.IP \fCOCLI_DISPLACEMENT\fR 1i
+The distance after which
+.B ocli
+will publish a location position defaults to 0 meters and can be changed dynamically (see above).
+.IP \fCOCLI_CACERT\fR 1i
+The path to a PEM-encoded CA certificate which
+.B ocli
+uses to enable TLS/SSL.It is likely that the default MQTT port will need to be changed at the same time.
+.\"-----------------------------------------------------------
+.SH BUGS
+Probably.
+.\"-----------------------------------------------------------
+.SH AUTHOR
+Jan-Piet Mens, https://github.com/owntracks/ocli
+.\"-----------------------------------------------------------
+.SH SEE ALSO
+.nh
+.BR jo (1),
+.BR mosquitto_pub (1),
+.BR https://github.com/owntracks/ocli ,
+.BR https://owntracks.org ,
+.BR gpsd (8).
+.\" EOF ocli.1
