@@ -14,26 +14,26 @@ ocli \- OwnTracks command-line interface GPS publisher
 .B ocli
 is the OwnTracks command line interface publisher, a small utility which connects to
 .B gpsd
-(the interface daemon for GPS receivers )
+(the interface daemon for GPS receivers)
 and publishes position information in OwnTracks JSON format to an MQTT broker in order
 for compatible software to process location data.
-
 .B ocli
 reads GPS data from an installed
 .B gpsd
-daemon, and as soon as it has a fix it publishes an OwnTracks payload.
+daemon, and as soon as it has a fix publishes an OwnTracks payload.
 .B ocli
 will subsequently publish a message every \fCOCLI_INTERVAL\fR seconds or when it detects it has moved \fCOCLI_DISPLACEMENT\fR meters.
 .PP
 .B ocli
 operates with a number of defaults which you can override using environment variables.
-.PP
+.SS Parameter files
 Any number of path names can be passed as
 .I parameter-file
 arguments to
-.B ocli
-which interprets each in terms of an element which will be added to the OwnTracks JSON. The element name is the base name of the path. If a path points to an executable file the first line of
-standard output produced by that executable will be used as the key's value, otherwise the first line read from the file. In both cases, trailing newlines are removed from values.
+.B ocli .
+A single line is read from each of the files and added to the OwnTracks JSON payload as elements with the key name of base name of
+.IR parameter-file .
+If the file is executable, the line is read from its standard output.
 .sp
 .nf
 .in 1i
@@ -45,6 +45,7 @@ ocli temperature /usr/bin/uname
 .fi
 .sp
 will produce a payload which might look like
+.sp
 .nf
 .in 1i
 .ft CW
@@ -53,8 +54,8 @@ will produce a payload which might look like
   "tst": 1577654651,
   "lat": 48.856826,
 
-  "temp" : "27.2",
-  "platform": "FreeBSD"
+  "temperature" : "27.2",
+  "uname": "FreeBSD"
 }
 .ft
 .in
@@ -66,7 +67,7 @@ must not overwrite JSON element names define by
 .BR ocli ,
 so, for example, a file called \fClat\fR will be silently ignored as it would clobber the JSON
 \fClatitude\fR element.
-.PP
+.SS Control
 It is possible to control
 .B ocli
 using a subset of OwnTrack's \fCcmd\fR commands.
@@ -136,7 +137,7 @@ The path to a PEM-encoded CA certificate which
 uses to enable TLS/SSL.It is likely that the default MQTT port will need to be changed at the same time.
 .\"-----------------------------------------------------------
 .SH BUGS
-Probably.
+Very likely.
 .\"-----------------------------------------------------------
 .SH AUTHOR
 Jan-Piet Mens, https://github.com/owntracks/ocli
