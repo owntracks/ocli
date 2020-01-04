@@ -9,7 +9,7 @@ OBJS = json.o
 all: ocli
 
 ocli: ocli.c $(OBJS)
-	$(CC) $(CCFLAGS) -o ocli ocli.c $(OBJS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o ocli ocli.c $(OBJS) $(LDFLAGS)
 
 json.o: json.c json.h
 ocli.o: json.h ocli.c utarray.h utstring.h
