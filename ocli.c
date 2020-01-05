@@ -492,7 +492,7 @@ int main(int argc, char **argv)
 	char *cacert = NULL;
 
 	ud->clientid = NULL;
-	ud->interval = env_number("OCLI_INTERVAL", 60);		// minsecs seconds
+	ud->interval = env_number("OCLI_INTERVAL", 1);		// minsecs seconds
 	ud->displacement = env_number("OCLI_DISPLACEMENT", 0);	// minmove meters
 
 	if ((p = getenv("GPSD_HOST")) != NULL)
