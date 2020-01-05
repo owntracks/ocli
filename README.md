@@ -107,6 +107,10 @@ The following commands are currently implemented:
 
 
 
+### testing
+
+There is a small set of scripts with which you can test ocli without having a real GPS receiver. Please check [contrib/fake/](contrib/fake/) for more information.
+
 ### building
 
 _ocli_ should compile easily once you extract the source code and have the prerequisite libraries installed for linking against _gpsd_ and the _mosquitto_ library.
