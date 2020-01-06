@@ -10,3 +10,6 @@ Fake data generator for testing ocli(1).
    the gpsd running on localhost:5000 and publishes to a random
    topic at test.mosquitto.org. Note: for added privacy use your 
    own broker.
+
+   run-ocli.sh will instruct you which MQTT topic to subscribe to
+   to see what it is publishing to the MQTT broker.
