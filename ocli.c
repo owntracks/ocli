@@ -31,10 +31,12 @@
 #include <unistd.h>
 #include <gps.h>
 #include <libgen.h>
+#include <getopt.h>
 #include <mosquitto.h>
 #include "json.h"
 #include "utarray.h"
 #include "utstring.h"
+#include "version.h"
 
 #define BLEN		8192
 
@@ -75,6 +77,7 @@ struct udata {
 
 	int interval;		/* publish after seconds */
 	int displacement;	/* publish after this number of meters movement (def: 0) */
+	bool verbose;
 };
 
 void publish(struct udata *ud, char *topic, char *payload, int qos, bool retain);
@@ -262,13 +265,15 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 	}
 
 	unix_to_iso8601(ttime, tbuf, sizeof(tbuf));
-	printf("mode=%d, lat=%f, lon=%f, acc=%f, tst=%s (%ld)\n",
-		fix->mode,
-		fix->latitude,
-		fix->longitude,
-		accuracy,
-		tbuf,
-		(long)ttime);
+	if (ud->verbose) {
+		printf("mode=%d, lat=%f, lon=%f, acc=%f, tst=%s (%ld)\n",
+			fix->mode,
+			fix->latitude,
+			fix->longitude,
+			accuracy,
+			tbuf,
+			(long)ttime);
+	}
 
 	jo = json_mkobject();
 
@@ -324,7 +329,10 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 			fp = fopen(*p, "r");
 		}
 
-		if (fp != NULL) {
+		if (fp == NULL) {
+			perror(*p);
+			continue;
+		} else {
 			char buf[1025], *bp;
 			if (fgets(buf, sizeof(buf), fp) != NULL) {
 				if ((bp = strchr(buf, '\r')) != NULL)
@@ -481,7 +489,7 @@ static int env_number(char *key, int min)
 int main(int argc, char **argv)
 {
 	unsigned int flags = WATCH_NEWSTYLE; // WATCH_ENABLE | WATCH_JSON;
-	int keepalive = 60, rc;
+	int keepalive = 60, rc, c;
 	char *p, *js;
 	char *gpsd_host = "localhost", *gpsd_port = DEFAULT_GPSD_PORT;
 	char *mqtt_host = "localhost";
@@ -490,6 +498,26 @@ int main(int argc, char **argv)
 	char hostname[BUFSIZ], *h, *username;
 	JsonNode *jo;
 	char *cacert = NULL;
+
+	ud->verbose = true;
+
+	while ((c = getopt(argc, argv, "sv")) != EOF) {
+		switch (c) {
+			case 's':
+				ud->verbose = false;
+				break;
+			case 'v':
+				printf("ocli %s\n", VERSION);
+				return (0);
+				break;
+			default:
+				fprintf(stderr, "Usage: %s [-s] [-v] [parameter-file ..]\n", *argv);
+				return (2);
+		}
+	}
+
+	argc -= optind - 1;
+	argv += optind - 1;
 
 	ud->clientid = NULL;
 	ud->interval = env_number("OCLI_INTERVAL", 1);		// minsecs seconds
@@ -570,9 +598,11 @@ int main(int argc, char **argv)
 	ud->t_dump = malloc(strlen(ud->basetopic) + strlen("/dump") + 1);
 	sprintf(ud->t_dump, "%s/dump", ud->basetopic);
 
-	printf("t_report %s\n", ud->basetopic);
-	printf("t_cmd    %s\n", ud->t_cmd);
-	printf("t_dump   %s\n", ud->t_dump );
+	if (ud->verbose) {
+		printf("t_base %s\n", ud->basetopic);
+		printf("t_cmd  %s\n", ud->t_cmd);
+		printf("t_dump %s\n", ud->t_dump );
+	}
 
 	mosquitto_lib_init();
 

@@ -8,6 +8,9 @@ ocli \- OwnTracks command-line interface GPS publisher
 .SH SYNOPSIS
 .B ocli
 [
+-v
+]
+[
 .IR parameter-file ... ]
 .\"-----------------------------------------------------------
 .SH DESCRIPTION
@@ -97,6 +100,16 @@ permits setting some of
 .BR ocli 's
 internal values (\fClocatorInterval\fR and \fClocatorDisplacement\fR).
 Note that these do not persist a restart.
+.\"-----------------------------------------------------------
+.SH OPTIONS
+.IP -v 1i
+Show version.
+.IP -s 1i
+By default,
+.B ocli
+prints informational messages to
+.IR stdout .
+This option silences those.
 .\"-----------------------------------------------------------
 .SH ENVIRONMENT
 .B ocli
