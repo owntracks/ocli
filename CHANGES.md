@@ -1,10 +1,13 @@
 # ocli changelog
 
 ## in progress
+
+## 2020-01-xx 0.7.0
 - Improve fake gps data for Paris, thanks to @ckrey
 - Clarify subscription
 - Add version, adapt CFLAGS, and -s and -v
-- Add infrastructure for Docker-based packaging
+- Add infrastructure for Docker-based packaging (#4)
+- Switch to Semantic Versioning
 
 ## 2020-01-04 0.06
 - Decrease default publish interval to 1s
