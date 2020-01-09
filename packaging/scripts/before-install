@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Add user
+useradd --create-home --shell /bin/bash owntracks || true

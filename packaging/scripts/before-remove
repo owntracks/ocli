@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Stop and disable the service.
+systemctl stop owntracks-publisher
+systemctl disable owntracks-publisher
