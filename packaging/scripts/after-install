@@ -1,0 +1,13 @@
+#!/bin/sh
+
+systemctl reenable owntracks-publisher
+
+# Don't autostart. User will have to configure it first.
+#systemctl restart owntracks-publisher
+
+echo
+echo "1. Please adjust configuration: /etc/default/owntracks-publisher.env"
+echo "2. Start daemon: systemctl start owntracks-publisher"
+echo "3. Watch logfile: /tmp/owntracks-fix.log"
+echo "4. Subscribe to MQTT broker and see what's going on there"
+echo

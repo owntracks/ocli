@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+# Packaging the "owntracks-publisher" using "fpm".
+##
+# Synopsis::
+#
+#   fpm-package owntracks-publisher buster 0.7.0
+#
+
+NAME=$1
+DISTRIBUTION=$2
+VERSION=$3
+
+echo "Building package ${NAME}-${VERSION} for ${DISTRIBUTION}"
+
+mkdir ./dist
+
+# Build Debian package
+fpm \
+    -s dir -t deb \
+    \
+    --name ${NAME} \
+    --version ${VERSION} \
+	--iteration 1~${DISTRIBUTION} \
+	\
+	--deb-user owntracks \
+	--deb-group owntracks \
+	--no-deb-use-file-permissions \
+	--depends "libmosquitto1, libgps23" \
+	--provides "${NAME}" \
+	--maintainer "jpmens@gmail.com" \
+	--license "GPL 2" \
+	--deb-changelog CHANGES.md \
+	--deb-meta-file README.md \
+	--description "OwnTracks publisher" \
+	--url "https://github.com/owntracks/ocli" \
+    \
+    --package ./dist/ \
+    --deb-default ./packaging/etc/owntracks-publisher.env \
+    --before-install ./packaging/scripts/before-install \
+    --after-install ./packaging/scripts/after-install \
+    --before-remove ./packaging/scripts/before-remove \
+    --verbose \
+    --force \
+    ./ocli=/usr/local/bin/ocli \
+    ./ocli.1=/usr/local/man/man1/ocli.1 \
+    ./packaging/systemd/owntracks-publisher.service=/usr/lib/systemd/system/owntracks-publisher.service
+
+
+# Optionally
+#		--debug \
+
+
+# Might use again when building from feature branches or other references
+#--deb-field 'Branch: $(branch) Commit: $(commit)' \
+#version  := $(shell python setup.py --version)
+
+
+
+# -------------------
+# Development options
+# -------------------
+
+# On your fingertips (enable on demand)
+
+
+# general debugging
+#		--debug \
+
+# don't delete working directory (to introspect the cruft in case something went wrong)
+#		--debug-workspace \
+
+# we don't prefix, instead use the convenient mapping syntax {source}={target}
+#		--prefix /opt/foobar \
+
+# we don't set any architecture, let the package builder do it
+#		--architecture noarch \
+
+# there are currently just --deb-init and --deb-upstart options for designating an init- or upstart script
+# we already use systemd
+
+# Add FILEPATH as /etc/default configuration
+#		--deb-default abc \
+
+# amend the shebang of scripts
+#	--python-scripts-executable '/usr/bin/env python' \
+
+# Add custom fields to DEBIAN/control file
+#		--deb-field 'Branch: master Commit: deadbeef' \

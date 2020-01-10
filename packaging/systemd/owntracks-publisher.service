@@ -1,0 +1,17 @@
+[Unit]
+Description=OwnTracks publisher daemon
+Documentation=https://github.com/owntracks/ocli
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/owntracks-publisher.env
+ExecStart=/usr/local/bin/ocli
+Restart=always
+RestartSec=60
+User=owntracks
+Group=owntracks
+
+[Install]
+WantedBy=multi-user.target
+Alias=owntracks-publisher.service
