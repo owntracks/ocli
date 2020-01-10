@@ -70,14 +70,14 @@ endif
 	$(eval NC := \033[0m)
 
 	@# Build Linux distribution package
-	@echo "Building package $(YELLOW)$(name)$(NC) version $(YELLOW)$(version)$(NC) for architecture $(YELLOW)$(arch)$(NC)."
+	@echo "Building package $(YELLOW)$(name)$(NC) version $(YELLOW)$(version)$(NC) for architecture $(YELLOW)$(arch)$(NC) and distribution $(YELLOW)$(dist)$(NC)."
 
 	$(eval build_image := owntracks/baseline-$(dist)-$(build_arch):latest)
 	$(eval build_tag := owntracks/$(DIST_PACKAGE)-build-$(dist)-$(arch):$(version))
-	$(eval package_name := $(name)_$(version)-1_$(arch).deb)
+	$(eval package_name := $(name)_$(version)-1~$(dist)_$(arch).deb)
 
 	@# Invoke the builder.
-	docker build --tag $(build_tag) --build-arg BASE_IMAGE=${build_image} --build-arg VERSION=$(version) --build-arg NAME=$(name) --file dockerfiles/Dockerfile.builder ..
+	docker build --tag $(build_tag) --build-arg BASE_IMAGE=${build_image} --build-arg DISTRIBUTION=$(dist) --build-arg VERSION=$(version) --build-arg NAME=$(name) --file dockerfiles/Dockerfile.builder ..
 
 
 	@echo "Harvesting package $(YELLOW)$(package_name)$(NC) from Docker container to directory $(YELLOW)$(DIST_PATH)$(NC)."
@@ -124,30 +124,43 @@ check-build-options:
 # Synopsis::
 #
 #    # Debian amd64
-#    make publish-package arch=amd64 version=0.7.0
+#    make publish-package arch=amd64 dist=buster version=0.7.0
 #
 #    # Debian armhf
-#    make debian-package arch=armhf version=0.7.0
+#    make debian-package arch=armhf dist=stretch version=0.7.0
 #
 
 $(eval github-release := ./bin/github-release)
 
-publish-package: check-github-release
+publish-package: check-github-release check-publish-options
 
-	$(eval package_file := $(DIST_PATH)/$(DIST_PACKAGE)_$(version)-1_$(arch).deb)
+	$(eval package_file := $(DIST_PATH)/$(DIST_PACKAGE)_$(version)-1~$(dist)_$(arch).deb)
 
 	@echo "Uploading release artefact $(package_file) to GitHub"
 
 	@# Show current releases.
-	@#$(github-release) info --user hiveeyes --repo hiveeyes-micropython-firmware
+	@#$(github-release) info --user owntracks --repo ocli
 
     # Create Release.
-	@#$(github-release) release --user hiveeyes --repo hiveeyes-micropython-firmware --tag $(version) --draft
-
 	$(github-release) release --user owntracks --repo ocli --tag $(version) || true
+	@# --draft
 
     # Upload artifact.
 	$(github-release) upload --user owntracks --repo ocli --tag $(version) --name $(notdir $(package_file)) --file $(package_file) --replace
+
+check-publish-options:
+	@if test "$(arch)" = ""; then \
+		echo "ERROR: 'arch' not set"; \
+		exit 1; \
+	fi
+	@if test "$(dist)" = ""; then \
+		echo "ERROR: 'dist' not set"; \
+		exit 1; \
+	fi
+	@if test "$(version)" = ""; then \
+		echo "ERROR: 'version' not set"; \
+		exit 1; \
+	fi
 
 
 # ----------------------

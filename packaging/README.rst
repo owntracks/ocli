@@ -39,10 +39,10 @@ Setup
 *****
 Prepare baseline images for both amd64 and armhf architectures::
 
-    # Debian Buster amd64
+    # Debian buster amd64
     make build-debian-baseline arch=amd64 dist=buster version=0.1.0
 
-    # Debian Stretch armhf
+    # Debian stretch armhf
     make build-debian-baseline arch=armv7hf dist=stretch version=0.1.0
 
 
@@ -51,10 +51,10 @@ Build
 *****
 Build "owntracks-publisher" package::
 
-    # Debian Buster amd64
+    # Debian buster amd64
     make debian-package arch=amd64 dist=buster version=0.7.0
 
-    # Debian Stretch armhf
+    # Debian stretch armhf
     make debian-package arch=armhf dist=stretch version=0.7.0
 
 
@@ -66,8 +66,8 @@ Publish package to GitHub::
     # Prepare
     export GITHUB_TOKEN=642ff7c47b1697a79ab7f105e1d79f054d0bbeef
 
-    # Debian amd64
-    make publish-package arch=amd64 version=0.7.0
+    # Debian buster amd64
+    make publish-package arch=amd64 dist=buster version=0.7.0
 
-    # Debian armhf
-    make publish-package arch=armhf version=0.7.0
+    # Debian stretch armhf
+    make publish-package arch=armhf dist=stretch version=0.7.0

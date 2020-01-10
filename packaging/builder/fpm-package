@@ -4,13 +4,16 @@
 ##
 # Synopsis::
 #
-#   fpm-package owntracks-publisher 0.7.0
+#   fpm-package owntracks-publisher buster 0.7.0
 #
 
 NAME=$1
-VERSION=$2
+DISTRIBUTION=$2
+VERSION=$3
 
-echo "Building package $NAME-$VERSION"
+echo "Building package ${NAME}-${VERSION} for ${DISTRIBUTION}"
+
+mkdir ./dist
 
 # Build Debian package
 fpm \
@@ -18,13 +21,11 @@ fpm \
     \
     --name ${NAME} \
     --version ${VERSION} \
-	--iteration 1 \
+	--iteration 1~${DISTRIBUTION} \
 	\
 	--deb-user owntracks \
 	--deb-group owntracks \
 	--no-deb-use-file-permissions \
-	--no-python-obey-requirements-txt \
-	--no-python-dependencies \
 	--depends "libmosquitto1, libgps23" \
 	--provides "${NAME}" \
 	--maintainer "jpmens@gmail.com" \

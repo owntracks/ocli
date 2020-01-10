@@ -13,9 +13,7 @@ RUN apt-get install --yes --no-install-recommends libgps-dev libmosquitto-dev
 # Acquire sources
 # ===============
 FROM build-environment AS acquire-sources
-
 ARG SOURCES=/sources
-
 COPY . $SOURCES
 
 
@@ -41,9 +39,10 @@ FROM build-program AS package-program
 
 ENV TMPDIR=/var/tmp
 
-ARG NAME
+ARG DISTRIBUTION
 ARG VERSION
+ARG NAME
 ARG SOURCES=/sources
 
 WORKDIR $SOURCES
-RUN ./packaging/builder/fpm-package "${NAME}" "${VERSION}"
+RUN ./packaging/builder/fpm-package "${NAME}" "${DISTRIBUTION}" "${VERSION}"
