@@ -486,6 +486,21 @@ static int env_number(char *key, int min)
 	return (n);
 }
 
+void obsd_unveil(char *path, char *mode, char *comment)
+{
+#ifdef __OpenBSD__
+	if (unveil(path, mode) != 0) {
+		fprintf(stderr, "%s: unveil(%s, %s) on %s: %s\n",
+			PROGNAME,
+			path ? path : "NULL",
+			mode ? mode : "NULL",
+			comment,
+			strerror(errno));
+		exit(2);
+	}
+#endif
+}
+
 int main(int argc, char **argv)
 {
 	unsigned int flags = WATCH_NEWSTYLE; // WATCH_ENABLE | WATCH_JSON;
@@ -516,6 +531,13 @@ int main(int argc, char **argv)
 		}
 	}
 
+#ifdef __OpenBSD__
+	if (pledge("stdio inet unveil proc rpath exec", NULL) != 0) {
+		perror("pledge");
+		exit(2);
+	}
+#endif
+
 	argc -= optind - 1;
 	argv += optind - 1;
 
@@ -539,19 +561,25 @@ int main(int argc, char **argv)
 
 	if ((p = getenv("OCLI_CACERT")) != NULL) {
 		cacert = strdup(p);
+		obsd_unveil(cacert, "r", "$OCLI_CACERT");
 	}
 
 	if ((p = getenv("fixlog")) != NULL) {
 		fixlog = fopen(p, "a");
 		if (fixlog == NULL) {
 			perror(p);
+			exit(1);
 		}
+		obsd_unveil(p, "cw", "fixlog");
 	}
 
 	utarray_new(parms, &ut_str_icd);
 	while (*++argv) {
+		/* No need to unveil() each *argv because we have rpath promise */
 		utarray_push_back(parms, &*argv);
 	}
+
+	obsd_unveil(NULL, NULL, "null veil");
 
 	if ((username = getlogin()) == NULL)
 		username = "nobody";

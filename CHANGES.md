@@ -2,7 +2,8 @@
 
 ## in progress
 
-## 2020-01-xx 0.7.0
+## 2020-01-12 0.8.0
+- add support for pledge(2) and unveil(2) in OpenBSD
 - Improve fake gps data for Paris, thanks to @ckrey
 - Clarify subscription
 - Add version, adapt CFLAGS, and -s and -v
