@@ -402,25 +402,35 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 						break;
 
 					case MODE_NOT_SEEN:
-						fprintf(stderr, ".. fix not yet seen\n");
+						if (ud->verbose) {
+							fprintf(stderr, ".. fix not yet seen\n");
+						}
 						break;
 
 					case MODE_NO_FIX:
-						fprintf(stderr, ".. no fix yet\n");
+						if (ud->verbose) {
+							fprintf(stderr, ".. no fix yet\n");
+						}
 						break;
 
 					default:
-						fprintf(stderr, ".. unpossible mode\n");
+						if (ud->verbose) {
+							fprintf(stderr, ".. unpossible mode\n");
+						}
 						break;
 				}
 				break;
 
 			case STATUS_NO_FIX:
-				fprintf(stderr, ".. no fix\n");
+				if (ud->verbose) {
+					fprintf(stderr, ".. no fix\n");
+				}
 				break;
 
 			default:
-				fprintf(stderr, "status == %llu\n", gpsdata->set & MODE_SET);
+				if (ud->verbose) {
+					fprintf(stderr, "status == %llu\n", gpsdata->set & MODE_SET);
+				}
 				break;
 		}
 	}
