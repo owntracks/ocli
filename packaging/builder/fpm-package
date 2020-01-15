@@ -4,12 +4,14 @@
 ##
 # Synopsis::
 #
-#   fpm-package owntracks-publisher buster 0.7.0
+#   fpm-package owntracks-publisher buster deb 0.7.0
+#   fpm-package owntracks-publisher centos8 rpm 0.7.0
 #
 
 NAME=$1
 DISTRIBUTION=$2
-VERSION=$3
+PKGTYPE=$3
+VERSION=$4
 
 echo "Building package ${NAME}-${VERSION} for ${DISTRIBUTION}"
 
@@ -17,7 +19,7 @@ mkdir ./dist
 
 # Build Debian package
 fpm \
-    -s dir -t deb \
+    -s dir -t ${PKGTYPE} \
     \
     --name ${NAME} \
     --version ${VERSION} \

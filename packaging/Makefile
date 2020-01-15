@@ -17,10 +17,17 @@ DIST_PACKAGE := owntracks-publisher
 # 	make build-debian-baseline arch=amd64 dist=buster version=0.1.0
 # 	make build-debian-baseline arch=armv7hf dist=stretch version=0.1.0
 #
+# 	make build-centos-baseline arch=amd64 dist=7 version=0.1.0
+# 	make build-centos-baseline arch=arm32v7 dist=7 version=0.1.0
+#
 
 build-debian-baseline: check-image-options
 	docker build --tag owntracks/baseline-$(dist)-$(arch):$(version) --build-arg BASE_IMAGE=balenalib/$(arch)-debian:$(dist)-build - < dockerfiles/Dockerfile.debian.baseline
 	docker tag owntracks/baseline-$(dist)-$(arch):$(version) owntracks/baseline-$(dist)-$(arch):latest
+
+build-centos-baseline: check-image-options
+	docker build --tag owntracks/baseline-centos$(dist)-$(arch):$(version) --build-arg BASE_IMAGE=$(arch)/centos:$(dist) - < dockerfiles/Dockerfile.centos.baseline
+	docker tag owntracks/baseline-centos$(dist)-$(arch):$(version) owntracks/baseline-centos$(dist)-$(arch):latest
 
 check-image-options:
 	@if test "$(arch)" = ""; then \
@@ -46,16 +53,36 @@ check-image-options:
 # Synopsis::
 #
 #    # Debian Buster amd64
-#    make debian-package arch=amd64 dist=buster version=0.7.0
+#    make debian-package arch=amd64 dist=buster pkgtype=deb version=0.7.0
 #
 #    # Debian Stretch armhf
-#    make debian-package arch=armhf dist=stretch version=0.7.0
+#    make debian-package arch=armhf dist=stretch pkgtype=deb version=0.7.0
+#
+#	 # CentOS 7
+#    make debian-package arch=amd64 dist=centos7 pkgtype=rpm version=0.7.0
 #
 
-debian-package:
-	$(MAKE) deb-build name=$(DIST_PACKAGE)
+# https://stackoverflow.com/questions/5947742/how-to-change-the-output-color-of-echo-in-linux
+# https://en.wikipedia.org/wiki/ANSI_escape_code
+YELLOW := \033[0;33m\033[1m
+NC := \033[0m
 
-deb-build: check-build-options
+debian-package:
+	$(eval name := $(DIST_PACKAGE))
+	$(eval package_name := $(name)_$(version)-1~$(dist)_$(arch).deb)
+	$(MAKE) pkg-build name=$(name) package_name=$(package_name)
+
+centos-package:
+ifeq ($(arch),armhf)
+	$(eval name_arch := arm32v7)
+else
+	$(eval name_arch := x86_64)
+endif
+	$(eval name := $(DIST_PACKAGE))
+	$(eval package_name := $(name)-$(version)-1~$(dist).$(name_arch).rpm)
+	$(MAKE) pkg-build name=$(name) package_name=$(package_name)
+
+pkg-build: check-build-options
 
 ifeq ($(arch),armhf)
 	$(eval build_arch := armv7hf)
@@ -63,21 +90,14 @@ else
 	$(eval build_arch := $(arch))
 endif
 
-	@# https://stackoverflow.com/questions/5947742/how-to-change-the-output-color-of-echo-in-linux
-	@# https://en.wikipedia.org/wiki/ANSI_escape_code
-	$(eval RED := "\033[0;31m")
-	$(eval YELLOW := \033[0;33m\033[1m)
-	$(eval NC := \033[0m)
-
 	@# Build Linux distribution package
-	@echo "Building package $(YELLOW)$(name)$(NC) version $(YELLOW)$(version)$(NC) for architecture $(YELLOW)$(arch)$(NC) and distribution $(YELLOW)$(dist)$(NC)."
+	@echo "Building $(YELLOW)$(pkgtype)$(NC) package $(YELLOW)$(name)$(NC) version $(YELLOW)$(version)$(NC) for architecture $(YELLOW)$(arch)$(NC) and distribution $(YELLOW)$(dist)$(NC)."
 
 	$(eval build_image := owntracks/baseline-$(dist)-$(build_arch):latest)
 	$(eval build_tag := owntracks/$(DIST_PACKAGE)-build-$(dist)-$(arch):$(version))
-	$(eval package_name := $(name)_$(version)-1~$(dist)_$(arch).deb)
 
 	@# Invoke the builder.
-	docker build --tag $(build_tag) --build-arg BASE_IMAGE=${build_image} --build-arg DISTRIBUTION=$(dist) --build-arg VERSION=$(version) --build-arg NAME=$(name) --file dockerfiles/Dockerfile.builder ..
+	docker build --tag $(build_tag) --build-arg BASE_IMAGE=${build_image} --build-arg DISTRIBUTION=$(dist) --build-arg PKGTYPE=$(pkgtype) --build-arg VERSION=$(version) --build-arg NAME=$(name) --file dockerfiles/Dockerfile.builder ..
 
 
 	@echo "Harvesting package $(YELLOW)$(package_name)$(NC) from Docker container to directory $(YELLOW)$(DIST_PATH)$(NC)."
@@ -103,6 +123,10 @@ check-build-options:
 	fi
 	@if test "$(dist)" = ""; then \
 		echo "ERROR: 'dist' not set"; \
+		exit 1; \
+	fi
+	@if test "$(pkgtype)" = ""; then \
+		echo "ERROR: 'pkgtype' not set"; \
 		exit 1; \
 	fi
 	@if test "$(name)" = ""; then \
