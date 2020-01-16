@@ -1,5 +1,5 @@
 ##############################################
-Build, package and publish owntracks-publisher
+Build, package and publish owntracks-cli-publisher
 ##############################################
 
 .. highlight:: bash
@@ -9,7 +9,7 @@ Build, package and publish owntracks-publisher
 Introduction
 ************
 This outlines the Makefile targets of a convenient
-packaging subsystem for ocli / owntracks-publisher.
+packaging subsystem for owntracks-cli-publisher.
 
 Currently, this is focused on Debian and CentOS packages
 but might be extended in the future.
@@ -65,7 +65,7 @@ Prepare baseline images for ``armhf`` architecture::
 *****
 Build
 *****
-Build ``owntracks-publisher`` package for ``amd64`` architecture::
+Build ``owntracks-cli-publisher`` package for ``amd64`` architecture::
 
     # Debian stretch amd64
     make debian-package arch=amd64 dist=stretch pkgtype=deb version=0.7.0
@@ -80,7 +80,7 @@ Build ``owntracks-publisher`` package for ``amd64`` architecture::
     make centos-package arch=amd64 dist=centos8 pkgtype=rpm version=0.7.0
 
 
-Build ``owntracks-publisher`` package for ``armhf`` architecture::
+Build ``owntracks-cli-publisher`` package for ``armhf`` architecture::
 
     # Debian stretch armhf
     make debian-package arch=armhf dist=stretch pkgtype=deb version=0.7.0

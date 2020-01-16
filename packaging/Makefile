@@ -5,7 +5,7 @@
 #               configuration
 # ==========================================
 DIST_PATH := ./dist
-DIST_PACKAGE := owntracks-publisher
+DIST_PACKAGE := owntracks-cli-publisher
 
 
 # ==========================================

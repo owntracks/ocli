@@ -2,6 +2,7 @@
 
 ## in progress
 - Add package building for CentOS 6,7,8
+- Rename package to "owntracks-cli-publisher"
 
 ## 2020-01-12 0.8.0
 - add support for pledge(2) and unveil(2) in OpenBSD

@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# Packaging the "owntracks-publisher" using "fpm".
+# Packaging the "owntracks-cli-publisher" using "fpm".
 ##
 # Synopsis::
 #
-#   fpm-package owntracks-publisher buster deb 0.7.0
-#   fpm-package owntracks-publisher centos8 rpm 0.7.0
+#   fpm-package owntracks-cli-publisher buster deb 0.7.0
+#   fpm-package owntracks-cli-publisher centos8 rpm 0.7.0
 #
 
 NAME=$1
@@ -34,11 +34,11 @@ fpm \
 	--license "GPL 2" \
 	--deb-changelog CHANGES.md \
 	--deb-meta-file README.md \
-	--description "OwnTracks publisher" \
+	--description "OwnTracks CLI publisher" \
 	--url "https://github.com/owntracks/ocli" \
     \
     --package ./dist/ \
-    --deb-default ./packaging/etc/owntracks-publisher.env \
+    --deb-default ./packaging/etc/owntracks-cli-publisher.env \
     --before-install ./packaging/scripts/before-install \
     --after-install ./packaging/scripts/after-install \
     --before-remove ./packaging/scripts/before-remove \
@@ -46,7 +46,7 @@ fpm \
     --force \
     ./ocli=/usr/local/bin/ocli \
     ./ocli.1=/usr/local/man/man1/ocli.1 \
-    ./packaging/systemd/owntracks-publisher.service=/usr/lib/systemd/system/owntracks-publisher.service
+    ./packaging/systemd/owntracks-cli-publisher.service=/usr/lib/systemd/system/owntracks-cli-publisher.service
 
 
 # Optionally
