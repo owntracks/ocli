@@ -68,22 +68,22 @@ Build
 Build ``owntracks-cli-publisher`` package for ``amd64`` architecture::
 
     # Debian stretch amd64
-    make debian-package arch=amd64 dist=stretch pkgtype=deb version=0.7.0
+    make debian-package arch=amd64 dist=stretch pkgtype=deb
 
     # Debian buster amd64
-    make debian-package arch=amd64 dist=buster pkgtype=deb version=0.7.0
+    make debian-package arch=amd64 dist=buster pkgtype=deb
 
     # CentOS 7 amd64
-    make centos-package arch=amd64 dist=centos7 pkgtype=rpm version=0.7.0
+    make centos-package arch=amd64 dist=centos7 pkgtype=rpm
 
     # CentOS 8 amd64
-    make centos-package arch=amd64 dist=centos8 pkgtype=rpm version=0.7.0
+    make centos-package arch=amd64 dist=centos8 pkgtype=rpm
 
 
 Build ``owntracks-cli-publisher`` package for ``armhf`` architecture::
 
     # Debian stretch armhf
-    make debian-package arch=armhf dist=stretch pkgtype=deb version=0.7.0
+    make debian-package arch=armhf dist=stretch pkgtype=deb
 
 
 *******
@@ -95,10 +95,10 @@ Publish package to GitHub::
     export GITHUB_TOKEN=642ff7c47b1697a79ab7f105e1d79f054d0bbeef
 
     # Debian buster amd64
-    make publish-package arch=amd64 dist=buster version=0.7.0
+    make publish-package arch=amd64 dist=buster
 
     # Debian stretch armhf
-    make publish-package arch=armhf dist=stretch version=0.7.0
+    make publish-package arch=armhf dist=stretch
 
 
 *****

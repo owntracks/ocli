@@ -4,8 +4,10 @@
 # ==========================================
 #               configuration
 # ==========================================
-DIST_PATH := ./dist
-DIST_PACKAGE := owntracks-cli-publisher
+PACKAGE_PATH    = ./dist
+PACKAGE_NAME    = owntracks-cli-publisher
+PACKAGE_VERSION = $(shell cat ../version.h | sed -e 's/\#define VERSION //' | tr -d '"\n')
+
 
 
 # ==========================================
@@ -53,13 +55,13 @@ check-image-options:
 # Synopsis::
 #
 #    # Debian Buster amd64
-#    make debian-package arch=amd64 dist=buster pkgtype=deb version=0.7.0
+#    make debian-package arch=amd64 dist=buster pkgtype=deb
 #
 #    # Debian Stretch armhf
-#    make debian-package arch=armhf dist=stretch pkgtype=deb version=0.7.0
+#    make debian-package arch=armhf dist=stretch pkgtype=deb
 #
 #	 # CentOS 7
-#    make debian-package arch=amd64 dist=centos7 pkgtype=rpm version=0.7.0
+#    make debian-package arch=amd64 dist=centos7 pkgtype=rpm
 #
 
 # https://stackoverflow.com/questions/5947742/how-to-change-the-output-color-of-echo-in-linux
@@ -68,8 +70,8 @@ YELLOW := \033[0;33m\033[1m
 NC := \033[0m
 
 debian-package:
-	$(eval name := $(DIST_PACKAGE))
-	$(eval package_name := $(name)_$(version)-1~$(dist)_$(arch).deb)
+	$(eval name := $(PACKAGE_NAME))
+	$(eval package_name := $(name)_$(PACKAGE_VERSION)-1~$(dist)_$(arch).deb)
 	$(MAKE) pkg-build name=$(name) package_name=$(package_name)
 
 centos-package:
@@ -78,8 +80,8 @@ ifeq ($(arch),armhf)
 else
 	$(eval name_arch := x86_64)
 endif
-	$(eval name := $(DIST_PACKAGE))
-	$(eval package_name := $(name)-$(version)-1~$(dist).$(name_arch).rpm)
+	$(eval name := $(PACKAGE_NAME))
+	$(eval package_name := $(name)-$(PACKAGE_VERSION)-1~$(dist).$(name_arch).rpm)
 	$(MAKE) pkg-build name=$(name) package_name=$(package_name)
 
 pkg-build: check-build-options
@@ -91,29 +93,29 @@ else
 endif
 
 	@# Build Linux distribution package
-	@echo "Building $(YELLOW)$(pkgtype)$(NC) package $(YELLOW)$(name)$(NC) version $(YELLOW)$(version)$(NC) for architecture $(YELLOW)$(arch)$(NC) and distribution $(YELLOW)$(dist)$(NC)."
+	@echo "Building $(YELLOW)$(pkgtype)$(NC) package $(YELLOW)$(name)$(NC) version $(YELLOW)$(PACKAGE_VERSION)$(NC) for architecture $(YELLOW)$(arch)$(NC) and distribution $(YELLOW)$(dist)$(NC)."
 
 	$(eval build_image := owntracks/baseline-$(dist)-$(build_arch):latest)
-	$(eval build_tag := owntracks/$(DIST_PACKAGE)-build-$(dist)-$(arch):$(version))
+	$(eval build_tag := owntracks/$(PACKAGE_NAME)-build-$(dist)-$(arch):$(PACKAGE_VERSION))
 
 	@# Invoke the builder.
-	docker build --tag $(build_tag) --build-arg BASE_IMAGE=${build_image} --build-arg DISTRIBUTION=$(dist) --build-arg PKGTYPE=$(pkgtype) --build-arg VERSION=$(version) --build-arg NAME=$(name) --file dockerfiles/Dockerfile.builder ..
+	docker build --tag $(build_tag) --build-arg BASE_IMAGE=${build_image} --build-arg DISTRIBUTION=$(dist) --build-arg PKGTYPE=$(pkgtype) --build-arg VERSION=$(PACKAGE_VERSION) --build-arg NAME=$(name) --file dockerfiles/Dockerfile.builder ..
 
 
-	@echo "Harvesting package $(YELLOW)$(package_name)$(NC) from Docker container to directory $(YELLOW)$(DIST_PATH)$(NC)."
+	@echo "Harvesting package $(YELLOW)$(package_name)$(NC) from Docker container to directory $(YELLOW)$(PACKAGE_PATH)$(NC)."
 
 	@# Spin up container.
 	@docker container rm -f finalize; true
 	docker container create --name finalize $(build_tag)
 
 	@# Copy .deb file from Docker container to working tree.
-	mkdir -p $(DIST_PATH)
-	docker container cp finalize:/sources/dist/$(package_name) $(DIST_PATH)
+	mkdir -p $(PACKAGE_PATH)
+	docker container cp finalize:/sources/dist/$(package_name) $(PACKAGE_PATH)
 
 	@# Destroy container.
 	docker container rm -f finalize
 
-	@echo "Enjoy your package at $(YELLOW)$(DIST_PATH)/$(package_name)$(NC)."
+	@echo "Enjoy your package at $(YELLOW)$(PACKAGE_PATH)/$(package_name)$(NC)."
 
 
 check-build-options:
@@ -133,10 +135,6 @@ check-build-options:
 		echo "ERROR: 'name' not set"; \
 		exit 1; \
 	fi
-	@if test "$(version)" = ""; then \
-		echo "ERROR: 'version' not set"; \
-		exit 1; \
-	fi
 
 
 # ==========================================
@@ -148,17 +146,17 @@ check-build-options:
 # Synopsis::
 #
 #    # Debian amd64
-#    make publish-package arch=amd64 dist=buster version=0.7.0
+#    make publish-package arch=amd64 dist=buster
 #
 #    # Debian armhf
-#    make debian-package arch=armhf dist=stretch version=0.7.0
+#    make debian-package arch=armhf dist=stretch
 #
 
 $(eval github-release := ./bin/github-release)
 
 publish-package: check-github-release check-publish-options
 
-	$(eval package_file := $(DIST_PATH)/$(DIST_PACKAGE)_$(version)-1~$(dist)_$(arch).deb)
+	$(eval package_file := $(PACKAGE_PATH)/$(PACKAGE_NAME)_$(PACKAGE_VERSION)-1~$(dist)_$(arch).deb)
 
 	@echo "Uploading release artefact $(package_file) to GitHub"
 
@@ -166,11 +164,11 @@ publish-package: check-github-release check-publish-options
 	@#$(github-release) info --user owntracks --repo ocli
 
     # Create Release.
-	$(github-release) release --user owntracks --repo ocli --tag $(version) || true
+	$(github-release) release --user owntracks --repo ocli --tag $(PACKAGE_VERSION) || true
 	@# --draft
 
     # Upload artifact.
-	$(github-release) upload --user owntracks --repo ocli --tag $(version) --name $(notdir $(package_file)) --file $(package_file) --replace
+	$(github-release) upload --user owntracks --repo ocli --tag $(PACKAGE_VERSION) --name $(notdir $(package_file)) --file $(package_file) --replace
 
 check-publish-options:
 	@if test "$(arch)" = ""; then \
@@ -179,10 +177,6 @@ check-publish-options:
 	fi
 	@if test "$(dist)" = ""; then \
 		echo "ERROR: 'dist' not set"; \
-		exit 1; \
-	fi
-	@if test "$(version)" = ""; then \
-		echo "ERROR: 'version' not set"; \
 		exit 1; \
 	fi
 
