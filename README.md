@@ -1,12 +1,12 @@
-# ocli
+# owntracks-cli-publisher
 
 ![OCLI logo](assets/owntrackscli192.png)
 
-This is the OwnTracks command line interface publisher, a.k.a. _ocli_, a small utility which connects to _gpsd_ and publishes position information in [OwnTracks JSON](https://owntracks.org/booklet/tech/json/) to an MQTT broker in order for [compatible software](https://owntracks.org/booklet/guide/clients/) to process location data. (Read up on [what OwnTracks does](https://owntracks.org/booklet/guide/whathow/) if you're new to it.)
+This is the OwnTracks command line interface publisher, a.k.a. _owntracks-cli-publisher_, a small utility which connects to _gpsd_ and publishes position information in [OwnTracks JSON](https://owntracks.org/booklet/tech/json/) to an MQTT broker in order for [compatible software](https://owntracks.org/booklet/guide/clients/) to process location data. (Read up on [what OwnTracks does](https://owntracks.org/booklet/guide/whathow/) if you're new to it.)
 
 ### gpsd
 
-[gpsd] is a daemon that receives data from one or more GPS receivers and provides data to multiple applications via a TCP/IP service. GPS data thus obtained is processed by _ocli_ and published via [MQTT].
+[gpsd] is a daemon that receives data from one or more GPS receivers and provides data to multiple applications via a TCP/IP service. GPS data thus obtained is processed by _owntracks-cli-publisher_ and published via [MQTT].
 
 ![vk-172](assets/img_9643.jpg)
 
@@ -17,9 +17,9 @@ Determining which USB port was obtained by the receiver can be challenging, but 
 ```console
 $ gpsd -n -D 2 -N /dev/tty.usbmodem1A121201
 ```
-### ocli
+### owntracks-cli-publisher
 
-_ocli_ operates with a number of defaults which you can override using environment variables.
+_owntracks-cli-publisher_ operates with a number of defaults which you can override using environment variables.
 
 The following defaults are used:
 
@@ -32,20 +32,20 @@ The following defaults are used:
 - `OCLI_DISPLACEMENT` defaults to 0 meters.
 - TLS can be enabled for the MQTT connection by specifying the path to a PEM CA certificate with which to verify peers in `OCLI_CACERT`. Note, that you'll likely need to also specify a different `MQTT_PORT` from the default.
 
-_ocli_ reads GPS data from _gpsd_ and as soon as it has a fix it publishes an OwnTracks payload (see below). _ocli_ will subsequently publish a message every `OCLI_INTERVAL` seconds or when it detects it has moved `OCLI_DISPLACEMENT` meters.
+_owntracks-cli-publisher_ reads GPS data from _gpsd_ and as soon as it has a fix it publishes an OwnTracks payload (see below). _owntracks-cli-publisher_ will subsequently publish a message every `OCLI_INTERVAL` seconds or when it detects it has moved `OCLI_DISPLACEMENT` meters.
 
-![ocli with OwnTracks on macOS](assets/jmbp-5862.png)
+![owntracks-cli-publisher with OwnTracks on macOS](assets/jmbp-5862.png)
 
 #### payload
 
-Any number of path names can be passed as arguments to _ocli_ which interprets each in terms of an element which will be added to the OwnTracks JSON. The element name is the base name of the path. If a path points to an executable file the first line of _stdout_ produced by that executable will be used as the _key_'s _value_, otherwise the first line read from the file. In both cases, trailing newlines are removed from values.
+Any number of path names can be passed as arguments to _owntracks-cli-publisher_ which interprets each in terms of an element which will be added to the OwnTracks JSON. The element name is the base name of the path. If a path points to an executable file the first line of _stdout_ produced by that executable will be used as the _key_'s _value_, otherwise the first line read from the file. In both cases, trailing newlines are removed from values.
 
 ```console
 $ echo 27.2 > parms/temp
-$ ocli parms/temp contrib/platform
+$ owntracks-cli-publisher parms/temp contrib/platform
 ```
 
-In this example, we use a file and a program. When _ocli_ produces its JSON we'll see something like this:
+In this example, we use a file and a program. When _owntracks-cli-publisher_ produces its JSON we'll see something like this:
 
 ```json
 {
@@ -58,11 +58,11 @@ In this example, we use a file and a program. When _ocli_ produces its JSON we'l
 }
 ```
 
-Note that a _key_ may not overwrite JSON keys defined by _ocli_, so for example, a file called `lat` will not be accepted as it would clobber the latitude JSON element.
+Note that a _key_ may not overwrite JSON keys defined by _owntracks-cli-publisher_, so for example, a file called `lat` will not be accepted as it would clobber the latitude JSON element.
 
-#### controlling ocli
+#### controlling owntracks-cli-publisher
 
-It is possible to control _ocli_ using a subset of OwnTrack's `cmd` commands.
+It is possible to control _owntracks-cli-publisher_ using a subset of OwnTrack's `cmd` commands.
 
 ```console
 $ t=owntracks/jpm/tiggr/cmd
@@ -70,8 +70,8 @@ $ mosquitto_pub -t $t -m "$(jo _type=cmd action=reportLocation)"
 ```
 The following commands are currently implemented:
 
-- `reportLocation` causes _ocli_ to publish its current location (providing _gpsd_ has a fix). _ocli_ sets `t:m` in the JSON indicating the publish was manually requested.
-- `dump` causes _ocli_ to publish its internal configuration to the topic `<basetopic>/dump` as a `_type: configuration` message.
+- `reportLocation` causes _owntracks-cli-publisher_ to publish its current location (providing _gpsd_ has a fix). _owntracks-cli-publisher_ sets `t:m` in the JSON indicating the publish was manually requested.
+- `dump` causes _owntracks-cli-publisher_ to publish its internal configuration to the topic `<basetopic>/dump` as a `_type: configuration` message.
 
 	```json
 	{
@@ -87,7 +87,7 @@ The following commands are currently implemented:
 	}
 	```
 
-- `setConfiguration` permits setting some of _ocli_'s internal values. Note that these do not persist a restart.
+- `setConfiguration` permits setting some of _owntracks-cli-publisher_'s internal values. Note that these do not persist a restart.
 
     ```console
     $ mosquitto_pub -t $t -m "$(jo _type=cmd action=setConfiguration configuration=$(jo _type=configuration locatorInterval=10 locatorDisplacement=0))"
@@ -109,13 +109,13 @@ The following commands are currently implemented:
 
 ### testing
 
-There is a small set of scripts with which you can test ocli without having a real GPS receiver. Please check [contrib/fake/](contrib/fake/) for more information.
+There is a small set of scripts with which you can test owntracks-cli-publisher without having a real GPS receiver. Please check [contrib/fake/](contrib/fake/) for more information.
 
 ### building
 
-_ocli_ should compile easily once you extract the source code and have the prerequisite libraries installed for linking against _gpsd_ and the _mosquitto_ library.
+_owntracks-cli-publisher_ should compile easily once you extract the source code and have the prerequisite libraries installed for linking against _gpsd_ and the _mosquitto_ library.
 
-Systems we've tested on require the following packages in order to build _ocli_.
+Systems we've tested on require the following packages in order to build _owntracks-cli-publisher_.
 
 #### FreeBSD
 
@@ -170,9 +170,9 @@ $ make
 
 #### systemd
 
-This may be a way of getting _ocli_ working on machines with _systemd_. Basically we need two things:
+This may be a way of getting _owntracks-cli-publisher_ working on machines with _systemd_. Basically we need two things:
 
-1. an environment file, `ocli.env`:
+1. an environment file, `owntracks-cli-publisher.env`:
 
 	```
 	name="Testing"
@@ -194,9 +194,9 @@ This may be a way of getting _ocli_ working on machines with _systemd_. Basicall
 
 	[Service]
 	Type=simple
-	EnvironmentFile=/home/jpm/ocli.env
+	EnvironmentFile=/home/jpm/owntracks-cli-publisher.env
 	ExecStartPre=/usr/bin/touch /tmp/ocli-started-${name}
-	ExecStart=/home/jpm/bin/ocli
+	ExecStart=/home/jpm/bin/owntracks-cli-publisher
 	Restart=always
 	RestartSec=60
 	User=mosquitto
@@ -206,6 +206,10 @@ This may be a way of getting _ocli_ working on machines with _systemd_. Basicall
 	WantedBy=multi-user.target
 	```
 
+### Packages
+
+Packages are available for select operating systems from the Github releases page. Note that the RPM packages do not contain an `owntracks-cli-publisher.env` file for systemd.
+
 
 ### Credits
 
@@ -214,6 +218,7 @@ This may be a way of getting _ocli_ working on machines with _systemd_. Basicall
 - [mosquitto](https://mosquitto.org)
 - [utarray](https://troydhanson.github.io/uthash/utarray.html)
 - [utstring](https://troydhanson.github.io/uthash/utstring.html)
+- packaging work by [Andreas Motl](https://github.com/amotl)
 
   [gpsd]: https://gpsd.gitlab.io/gpsd/
   [mqtt]: http://mqtt.org

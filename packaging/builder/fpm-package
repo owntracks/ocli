@@ -44,8 +44,8 @@ fpm \
     --before-remove ./packaging/scripts/before-remove \
     --verbose \
     --force \
-    ./ocli=/usr/local/bin/ocli \
-    ./ocli.1=/usr/local/man/man1/ocli.1 \
+    ./owntracks-cli-publisher=/usr/local/bin/owntracks-cli-publisher \
+    ./owntracks-cli-publisher.1=/usr/local/man/man1/owntracks-cli-publisher.1 \
     ./packaging/systemd/owntracks-cli-publisher.service=/usr/lib/systemd/system/owntracks-cli-publisher.service
 
 

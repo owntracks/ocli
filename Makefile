@@ -1,30 +1,31 @@
 CFLAGS+=-Wall -Werror -Os -I/usr/local/include
 LDFLAGS=-L /usr/local/lib -lmosquitto -lgps -lm
 
+OCLI = owntracks-cli-publisher
 BINDIR = /usr/local/bin
 MANDIR  = /usr/local/man
 
 OBJS = json.o
 
-all: ocli
+all: $(OCLI)
 
-ocli: ocli.o $(OBJS)
-	$(CC) -o ocli ocli.o $(OBJS) $(LDFLAGS)
+$(OCLI): $(OCLI).o $(OBJS)
+	$(CC) -o $(OCLI) $(OCLI).o $(OBJS) $(LDFLAGS)
 
 json.o: json.c json.h
-ocli.o: json.h ocli.c utarray.h utstring.h version.h
+$(OCLI).o: json.h $(OCLI).c utarray.h utstring.h version.h
 
-ocli.pdf: ocli.1
-	groff -Tps -man ocli.1 > ocli.tmp_ && pstopdf -i ocli.tmp_ -o ocli.pdf && rm -f ocli.tmp_
+$(OCLI).pdf: $(OCLI).1
+	groff -Tps -man $(OCLI).1 > $(OCLI).tmp_ && pstopdf -i $(OCLI).tmp_ -o $(OCLI).pdf && rm -f $(OCLI).tmp_
 
-install: ocli ocli.1
+install: $(OCLI) $(OCLI).1
 	install -d $(DESTDIR)$(BINDIR)
-	install -m755 ocli $(DESTDIR)$(BINDIR)/ocli
+	install -m755 $(OCLI) $(DESTDIR)$(BINDIR)/$(OCLI)
 	install -d $(DESTDIR)$(MANDIR)/man1
-	install -m644 ocli.1 $(DESTDIR)$(MANDIR)/man1/ocli.1
+	install -m644 $(OCLI).1 $(DESTDIR)$(MANDIR)/man1/$(OCLI).1
 
 clean:
 	rm -f *.o
 
 clobber: clean
-	rm -f ocli
+	rm -f $(OCLI)

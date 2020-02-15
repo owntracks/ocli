@@ -1,9 +1,10 @@
 # ocli changelog
 
-## in progress
+## 2020-02-15 0.9.1
 - Add package building for CentOS 6,7,8
 - Rename package to "owntracks-cli-publisher"
 - Use version tag from "version.h".
+- silence switch is honoured
 
 ## 2020-01-12 0.8.0
 - add support for pledge(2) and unveil(2) in OpenBSD
