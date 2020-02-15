@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/owntracks-publisher.env
+EnvironmentFile=/etc/default/owntracks-cli-publisher.env
 ExecStart=/usr/local/bin/ocli
 Restart=always
 RestartSec=60
@@ -14,4 +14,4 @@ Group=owntracks
 
 [Install]
 WantedBy=multi-user.target
-Alias=owntracks-publisher.service
+Alias=owntracks-cli-publisher.service
