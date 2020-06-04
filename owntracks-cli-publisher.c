@@ -85,7 +85,7 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double time,
 
 void catcher(int sig)
 {
-	fprintf(stderr, "%s: Going down on signal %d", PROGNAME, sig);
+	fprintf(stderr, "%s: Going down on signal %d\n", PROGNAME, sig);
 	exit(1);
 }
 
@@ -264,7 +264,14 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 		accuracy = 0.0;
 	}
 
+#if GPSD_API_MAJOR_VERSION >= 9
+	timespec_t ts;
+	ts.tv_sec = (long)ttime;
+	ts.tv_nsec = 0;
+	timespec_to_iso8601(ts, tbuf, sizeof(tbuf));
+#else
 	unix_to_iso8601(ttime, tbuf, sizeof(tbuf));
+#endif
 	if (ud->verbose) {
 		printf("mode=%d, lat=%f, lon=%f, acc=%f, tst=%s (%ld)\n",
 			fix->mode,
@@ -372,7 +379,11 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 {
 	struct gps_fix_t *fix = &(gpsdata->fix);
+#if GPSD_API_MAJOR_VERSION >= 9
+	static timespec_t int_time, old_int_time;
+#else
 	static double int_time, old_int_time;
+#endif
 	static double old_lat, old_lon;
 	static bool first = true;
 	bool valid = false;
@@ -449,7 +460,11 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 
 	int_time = fix->time;
 
+#if GPSD_API_MAJOR_VERSION >= 9
+	if ((int_time.tv_sec == old_int_time.tv_sec) || fix->mode < MODE_2D) {
+#else
 	if ((int_time == old_int_time) || fix->mode < MODE_2D) {
+#endif
 		// puts("rubbish");
 		usleep(SIESTA);
 		return;
@@ -466,7 +481,11 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 	}
 
 	/* Don't log if interval seconds haven't elapsed since the last fix */
+#if GPSD_API_MAJOR_VERSION >= 9
+	if ((labs(int_time.tv_sec - old_int_time.tv_sec) < ud->interval) && !first) {
+#else
 	if ((fabs(int_time - old_int_time) < ud->interval) && !first) {
+#endif
 		// puts("too soon");
 		usleep(SIESTA);
 		return;
@@ -481,7 +500,11 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 		old_lon = fix->longitude;
 	}
 
+#if GPSD_API_MAJOR_VERSION >= 9
+	print_fix(ud, gpsdata, (double)int_time.tv_sec, PERIODIC_REPORT);
+#else
 	print_fix(ud, gpsdata, int_time, PERIODIC_REPORT);
+#endif
 }
 
 static int env_number(char *key, int min)
@@ -640,6 +663,8 @@ int main(int argc, char **argv)
 		printf("t_base %s\n", ud->basetopic);
 		printf("t_cmd  %s\n", ud->t_cmd);
 		printf("t_dump %s\n", ud->t_dump );
+		printf("GPSD_API_MAJOR_VERSION %d\n",
+			GPSD_API_MAJOR_VERSION);
 	}
 
 	mosquitto_lib_init();
