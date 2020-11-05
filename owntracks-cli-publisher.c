@@ -394,7 +394,11 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 	}
 
 	if (gpsdata->set & STATUS_SET) {
+#if GPSD_API_MAJOR_VERSION >= 10
+		switch (gpsdata->fix.status) {
+#else
 		switch (gpsdata->status) {
+#endif
 			case STATUS_FIX:
 #ifdef STATUS_DGPS_FIX
 			case STATUS_DGPS_FIX:
