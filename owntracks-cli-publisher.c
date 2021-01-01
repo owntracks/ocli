@@ -546,6 +546,8 @@ int main(int argc, char **argv)
 	char *gpsd_host = "localhost", *gpsd_port = DEFAULT_GPSD_PORT;
 	char *mqtt_host = "localhost";
 	short mqtt_port = 1883;
+	char *mqtt_user = NULL;
+	char *mqtt_pass = NULL;
 	struct udata udata, *ud = &udata;
 	char hostname[BUFSIZ], *h, *username;
 	JsonNode *jo;
@@ -595,6 +597,12 @@ int main(int argc, char **argv)
 	if ((p = getenv("MQTT_PORT")) != NULL) {
 		mqtt_port = atoi(p) < 1 ? 1883 : atoi(p);
 	}
+
+	if ((p = getenv("MQTT_USER")) != NULL)
+		mqtt_user = strdup(p);
+
+	if ((p = getenv("MQTT_PASS")) != NULL)
+		mqtt_pass = strdup(p);
 
 	if ((p = getenv("OCLI_CACERT")) != NULL) {
 		cacert = strdup(p);
@@ -700,8 +708,13 @@ int main(int argc, char **argv)
 			);
 	}
 
-
-
+	if (mqtt_user != NULL) {
+		mosquitto_username_pw_set(ud->mosq,
+			mqtt_user,
+			mqtt_pass
+			);
+	}
+	
 	/* Create payload for LWT consisting of starting timestamp */
 	jo = json_mkobject();
 
