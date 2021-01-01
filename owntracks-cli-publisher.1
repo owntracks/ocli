@@ -124,6 +124,10 @@ the short host name.
 The MQTT host defaults to \fClocalhost\fR.
 .IP \fCMQTT_PORT\fR 1i
 The MQTT port is \fC1883\fR.
+.IP \fCMQTT_USER\fR 1i
+The username to use to authenticate with the MQTT broker.
+.IP \fCMQTT_PASS\fR 1i
+The password to use to authenticate with the MQTT broker.
 .IP \fCOCLI_CLIENTID\fR 1i
 The MQTT clientId is set to \fC"ocli-\fIusername\fR\fC-\fIhostname\fR\fC"\fR.
 .IP \fCGPSD_HOST\fR 1i
@@ -147,7 +151,7 @@ will publish a location position defaults to 0 meters and can be changed dynamic
 .IP \fCOCLI_CACERT\fR 1i
 The path to a PEM-encoded CA certificate which
 .B ocli
-uses to enable TLS/SSL.It is likely that the default MQTT port will need to be changed at the same time.
+uses to enable TLS/SSL. It is likely that the default MQTT port will need to be changed at the same time.
 .\"-----------------------------------------------------------
 .SH BUGS
 Very likely.
