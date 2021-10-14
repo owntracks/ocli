@@ -399,9 +399,17 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 #else
 		switch (gpsdata->status) {
 #endif
-			case STATUS_FIX:
+#ifdef STATUS_FIX
+                        case STATUS_FIX:
+#endif
+#ifdef STATUS_GPS
+                        case STATUS_GPS:
+#endif
 #ifdef STATUS_DGPS_FIX
-			case STATUS_DGPS_FIX:
+                        case STATUS_DGPS_FIX:
+#endif
+#ifdef STATUS_DGPS
+                        case STATUS_DGPS:
 #endif
 				switch (gpsdata->fix.mode) {
 					case MODE_2D:
@@ -436,7 +444,12 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 				}
 				break;
 
-			case STATUS_NO_FIX:
+#ifdef STATUS_NO_FIX
+                        case STATUS_NO_FIX:
+#endif
+#ifdef STATUS_UNK
+                       case STATUS_UNK:
+#endif
 				if (ud->verbose) {
 					fprintf(stderr, ".. no fix\n");
 				}
