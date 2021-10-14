@@ -11,6 +11,25 @@ Restart=always
 RestartSec=60
 User=owntracks
 Group=owntracks
+# Harden system access
+#
+# if you need to turn off some protection
+# then create file
+# /etc/systemd/system/owntracks-cli-publisher.service.d/harden.conf
+#
+# For example turn off ProtectHome:
+# [Service]
+# ProtectHome=false
+#
+ProtectSystem=full
+ProtectHome=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictRealtime=true
 
 [Install]
 WantedBy=multi-user.target
