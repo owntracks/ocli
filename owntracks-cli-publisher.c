@@ -336,11 +336,11 @@ static void print_fix(struct udata *ud, struct gps_data_t *gpsdata, double ttime
 			fp = fopen(*p, "r");
 		}
 
+		char buf[1025], *bp;
 		if (fp == NULL) {
 			perror(*p);
 			continue;
 		} else {
-			char buf[1025], *bp;
 			if (fgets(buf, sizeof(buf), fp) != NULL) {
 				if ((bp = strchr(buf, '\r')) != NULL)
 					*bp = 0;
