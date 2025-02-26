@@ -145,29 +145,6 @@ $ make
 $ make
 ```
 
-#### CentOS
-
-```console
-# yum install openssl-devel
-$ wget https://mosquitto.org/files/source/mosquitto-1.6.8.tar.gz
-$ tar xf mosquitto-1.6.8.tar.gz
-$ cd mosquitto-1.6.8/
-$ make
-# make install
-# echo /usr/local/lib > /etc/ld.so.conf.d/mosquitto.conf
-# ldconfig
-
-# yum install python3-scons
-$ wget http://download-mirror.savannah.gnu.org/releases/gpsd/gpsd-3.19.tar.gz
-$ tar xf gpsd-3.19.tar.gz
-$ cd gpsd-3.19/
-$ /usr/bin/scons-3
-# /usr/bin/scons-3 udev-install
-
-$ cd ocli
-$ make
-```
-
 #### systemd
 
 This may be a way of getting _owntracks-cli-publisher_ working on machines with _systemd_. Basically we need two things:
