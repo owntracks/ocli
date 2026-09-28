@@ -402,6 +402,9 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 #ifdef STATUS_FIX
                         case STATUS_FIX:
 #endif
+#ifdef STATUS_UNK
+                        case STATUS_UNK:
+#endif
 #ifdef STATUS_GPS
                         case STATUS_GPS:
 #endif
@@ -446,9 +449,6 @@ static void conditionally_log_fix(struct udata *ud, struct gps_data_t *gpsdata)
 
 #ifdef STATUS_NO_FIX
                         case STATUS_NO_FIX:
-#endif
-#ifdef STATUS_UNK
-                       case STATUS_UNK:
 #endif
 				if (ud->verbose) {
 					fprintf(stderr, ".. no fix\n");
